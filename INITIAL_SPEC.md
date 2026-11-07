@@ -86,7 +86,23 @@ The initial offer is a lead-created turn; subsequent turns are triggered by buye
 
 ## Connector contracts
 
-Marketplace operations: read posts using a cursor, read replies using a cursor, reply to a post, and send a DM. Posts and replies include platform, external ID, buyer ID, thread ID, text, creation time, and optional location. Connector capabilities indicate whether DM is supported; MVP can negotiate in a public mock thread.
+Marketplace operations: `SearchPost` for discovery, read posts using a cursor, read replies using a cursor, reply to a post, and send a DM. Posts and replies include platform, external ID, buyer ID, thread ID, text, creation time, and optional location. Connector capabilities indicate whether DM is supported; MVP can negotiate in a public mock thread.
+
+### Marketplace SearchPost API
+
+P4 implements `SearchPost`; P2 calls it during discovery to find candidate buyer posts. It is a read-only marketplace API, outside the six conversation-agent tools. Searching does not create leads or trigger agent turns; P2 owns intent filtering, matching, and deduplication afterward.
+
+Proposed Go contract, with shared type names to align in implementation:
+
+```go
+SearchPost(ctx context.Context, req SearchPostRequest) (SearchPostResult, error)
+```
+
+- Request: `Query` (search text), optional `City`, `Cursor`, and bounded `Limit`.
+- Result: `Posts` (normalized marketplace posts) and `NextCursor` (empty when exhausted).
+- Each post includes platform, external post ID, buyer/thread identity, text, creation time, and optional location, as above.
+- An empty query lists recent posts. The mock uses case-insensitive text matching and an optional city filter with stable pagination. No results returns an empty list; connector failures return an error.
+- P4 exposes this capability through its marketplace service; any HTTP route is an implementation detail to agree with P2. Search results are candidates, not confirmed buying requests.
 
 All outbound operations receive an action ID as an idempotency key. The mock connector must deduplicate it. Persist cursors only after the corresponding events are durably ingested. Retries must not create duplicate messages.
 
