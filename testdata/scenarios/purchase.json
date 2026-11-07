@@ -1,0 +1,13 @@
+{
+  "post_seed": "purchase",
+  "replies": {
+    "counteroffer": {
+      "external_reply_id": "reply-demo-purchase-counteroffer",
+      "text": "Boleh Rp5,4 juta untuk laptop ini?"
+    },
+    "accept": {
+      "external_reply_id": "reply-demo-purchase-accept",
+      "text": "Saya setuju Rp5,4 juta. Bisa kirim link checkout?"
+    }
+  }
+}

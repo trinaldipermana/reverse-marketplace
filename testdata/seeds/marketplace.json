@@ -1,0 +1,26 @@
+{
+  "purchase": {
+    "platform": "mock",
+    "external_post_id": "post-demo-purchase",
+    "buyer_id": "buyer-demo-purchase",
+    "thread_id": "thread-demo-purchase",
+    "text": "Cari laptop bekas untuk coding, RAM minimal 16 GB, budget di bawah Rp6 juta. Butuh minggu ini di Jakarta.",
+    "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
+  },
+  "exception": {
+    "platform": "mock",
+    "external_post_id": "post-demo-exception",
+    "buyer_id": "buyer-demo-exception",
+    "thread_id": "thread-demo-exception",
+    "text": "Butuh laptop bekas untuk coding di Jakarta minggu ini. RAM minimal 16 GB, budget di bawah Rp6 juta.",
+    "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
+  },
+  "non_buying": {
+    "platform": "mock",
+    "external_post_id": "post-demo-selling",
+    "buyer_id": "buyer-demo-selling",
+    "thread_id": "thread-demo-selling",
+    "text": "Dijual laptop bekas untuk coding, RAM 16 GB, Rp5,8 juta. Lokasi Jakarta, bisa diambil minggu ini.",
+    "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
+  }
+}
