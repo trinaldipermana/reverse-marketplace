@@ -1,10 +1,23 @@
 # Reverse Marketplace
 
-Hackathon project for a reverse marketplace. Add the problem we’re solving, who it’s for, and the flow we plan to demo once the team agrees on the scope.
+Reverse Marketplace is a Go-backed hackathon MVP for the Autonomous & Adaptive AI track. Buyers post what they need. Seller agents match those requests to available inventory, negotiate within seller limits, and share a checkout link. Sellers step in when a request needs their judgment.
+
+## Demo
+
+A buyer in Jakarta asks for a used laptop with 16 GB RAM under Rp6 million. The demo follows the request through discovery, offer, negotiation, reservation, and mock payment. The seller dashboard shows the lead and the actions taken. A second scenario shows the system rejecting a below-floor offer or escalating an exception. The demo uses a mock marketplace, mock inventory, and a local mock checkout.
 
 ## Getting started
 
-Add the prerequisites, install and run commands, and required environment variable names once the app is runnable. Include the demo URL when it’s available.
+Read the [MVP specification](./INITIAL_SPEC.md), then use its [build sequence](./INITIAL_SPEC.md#build-sequence-and-integration-gates) and [acceptance checks](./INITIAL_SPEC.md#acceptance-checks) to plan and verify your work. Local run commands will be added once the app is runnable.
+
+## Team ownership
+
+| Role | Owns | Proposed GitHub label |
+| --- | --- | --- |
+| P1 Runtime | Agent turns, event worker, tool wrappers, runtime limits, and action logs | `area:runtime` |
+| P2 Commerce | Discovery and matching, product APIs, inventory and mock POS backend, reservations, and mock payment | `area:commerce` |
+| P3 UI | Seller dashboard, inventory and POS screens, and checkout UI | `area:ui` |
+| P4 Demo | Mock marketplace, search and messaging, buyer simulator, and demo scenarios | `area:demo` |
 
 ## How we work
 
