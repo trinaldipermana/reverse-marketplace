@@ -1,8 +1,8 @@
-# Reverse marketplace shared specification and team handoff
+# Reverse marketplace MVP specification
 
-Version: 0.3. Updated: 7 November 2026. Track: Autonomous & Adaptive AI. Backend: Go.
+Version: 0.4. Updated: 7 November 2026. Track: Autonomous & Adaptive AI. Backend: Go.
 
-Status: Confirmed product boundaries and six-tool routing, with proposed implementation details explicitly labeled. Share this document with each teammate agent as the common baseline.
+Implementation baseline. Open decisions and proposed implementation details are labeled separately.
 
 Buyers publish needs; seller agents find suitable requests, offer real inventory, negotiate within seller limits, and provide a checkout link. Sellers intervene when an exception requires judgment. The hackathon MVP should demonstrate this complete journey using a mock marketplace, mock inventory, and a local mock payment page.
 
@@ -17,21 +17,14 @@ Buyers publish needs; seller agents find suitable requests, offer real inventory
 
 P1 implements the six tool wrappers; P2 implements their commerce methods and P4 implements message delivery. P2 owns inventory connector contracts, the mock POS backend, product-related APIs, and mock payment execution. P3 owns the corresponding UI and calls P2 APIs. P2 owns the payment transaction that decrements inventory, commits the reservation, and marks the checkout and lead paid. P4 retains mock marketplace APIs and message storage/delivery. Shared migration ownership still needs alignment.
 
+## Integration requirements
 
-## Instructions for teammate agents
+- P1, P2, P3, and P4 use the same tool names, lead states, and shared domain types.
+- Service owners define request/response types and error behavior before consumers integrate. Consumers may use interface stubs during development.
+- Database changes use one ordered migration sequence across services. Migration ownership is an open decision.
+- Application source repository: `https://github.com/trinaldirizki/reverse-marketplace`.
 
-- Use this document for the shared product scope, responsibility split, tool names, and lead states. Role-specific designs may add implementation detail; flag contradictions before changing a shared contract.
-- Work in your assigned role. P2 is Salsabila's role; P1's draft names Rafi. Other teammate names are not yet recorded.
-- Application code lives in `osh/reverse-marketplace/`, cloned from `https://github.com/trinaldirizki/reverse-marketplace`. Planning and review files live in the parent `osh/` directory. These are separate Git repositories.
-- Inspect application repository instructions and existing code before selecting package paths or scaffolding. The contracts below describe intended behavior; they do not claim that endpoints or services already exist.
-- Agree shared Go types, API request/response shapes, and migration ownership before dependent implementations. Use stubs behind interfaces while another owner builds their service.
-- Deliver a summary of changed files, implemented contracts, checks run, and remaining integration dependencies. Do not silently rename tools, states, or another role's methods.
-
-### Related documents
-
-`p1-agent-runtime-tech-doc.md` is P1's runtime proposal. `P1_DESIGN_REVIEW.md` records review findings; its fixes are recommendations unless incorporated into this shared spec. Neither document's extra scope cuts should be assumed agreed. Share this spec first; include the runtime proposal and review for P1 integration work.
-
-## Confirmed decisions
+## System requirements
 
 - Discovery is ordinary code, with LLM calls for intent extraction and ranking. The conversation agent starts only after a lead exists.
 - Marketplace and inventory integrations use interfaces. Mock implementations are the default; real platforms are extensions.
@@ -41,7 +34,6 @@ P1 implements the six tool wrappers; P2 implements their commerce methods and P4
 - Reservations live in our database. Available stock is source stock minus active reservations.
 - Checkout reserves stock for 30 minutes. Payment is a mock action on our own checkout page, with no payment provider.
 - P2 owns `GetItem`, `RecordOffer`, `CreateCheckout`, and `TransitionLead`. P4 owns the mock marketplace and `SendAgentMessage`. P2 also owns product APIs, mock POS, and mock payment. P3 owns the dashboard, POS/inventory screens, and checkout/payment UI.
-- Planning lives in `osh/`; application code lives in the cloned `osh/reverse-marketplace/` repository.
 
 ## Demo outcome and scope
 
@@ -218,7 +210,7 @@ Unique constraints cover external event identity, seller/post lead identity, tri
 
 ## Proposed HTTP surface
 
-These are initial contracts to align before implementation; they are not existing endpoints.
+Proposed routes and responsibilities; request/response schemas remain to be defined. P2 owns product routes; P4 owns mock marketplace routes. P3 consumes these APIs and renders the checkout page.
 
 - `POST /api/mock/posts` and `POST /api/mock/threads/{id}/replies`: create feed activity.
 - `GET /api/mock/threads/{id}`: read offers and replies.
@@ -266,11 +258,11 @@ Freeze features for the final quarter of available time. Reset and rehearse with
 
 Use focused Go tests for policy math, transitions, idempotency, and payment/reservation races, plus one end-to-end seeded purchase. Maintain a small intent/matching/conversation eval set with expected decisions and tool behavior; do not require exact wording.
 
-## Proposed defaults and decisions to settle
+## Implementation defaults and open decisions
 
 These defaults are implementation proposals, not additional confirmed requirements.
 
-| Decision | Proposed default |
+| Topic | Default or open decision |
 | --- | --- |
 | Database | SQLite for one local service; use PostgreSQL if the team already has it ready |
 | Currency and location | IDR, seeded Jakarta coordinates |
@@ -285,4 +277,4 @@ These defaults are implementation proposals, not additional confirmed requiremen
 | UI stack | Team's fastest familiar stack; choose once before dashboard/feed implementation |
 | Thresholds and caps | Configurable, calibrated against seed scenarios before the demo |
 
-Still needed from the team: hours remaining and submission deadline, P3/P4 names, preferred frontend stack, available model access, migration ownership, and P2/P3 API request/response shapes. Manual approval and seller hand-back are proposed features pending scope agreement. No agent should interpret those open items as permission to expand another role's work.
+Open integration decisions: frontend stack, model configuration, migration ownership, P2/P3 API request/response schemas, manual approval scope, seller resume/close controls, and event recovery behavior.
