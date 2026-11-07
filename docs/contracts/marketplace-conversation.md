@@ -1,4 +1,4 @@
-# Proposed marketplace buyer replies
+# Proposed marketplace conversation contract
 
 P4 owns the mock thread and reply store. P1 owns lead resolution and conversation turns. The proposal and remaining integration decisions are tracked in [issue #10](https://github.com/trinaldirizki/reverse-marketplace/issues/10). The local mock uses the canonical post lookup from [issue #7](https://github.com/trinaldirizki/reverse-marketplace/issues/7).
 
@@ -24,4 +24,24 @@ A durable acknowledgment means P1 recorded the event ID and its routing outcome 
 
 `marketplacetest.NewConversation` seeds a canonical post and opens its thread. `marketplacetest.SendStub` lets consumer tests inject a send outcome without publishing to buyer history.
 
-The mock verifies in-process replay and lost-acknowledgment behavior. It loses history, pending events, and cursors on restart. Shared database, migration, and app wiring decisions are tracked in [issue #11](https://github.com/trinaldirizki/reverse-marketplace/issues/11) and [issue #15](https://github.com/trinaldirizki/reverse-marketplace/issues/15). Restart recovery and one serialized turn per eligible reply await persistent storage and P1 intake. Guarded outbound delivery is a separate slice of #10.
+The mock verifies in-process replay and lost-acknowledgment behavior. It loses history, pending events, and cursors on restart. Restart recovery and one serialized turn per eligible reply await persistent storage and P1 intake. P4 migration allocation and app wiring remain open in [issue #11](https://github.com/trinaldirizki/reverse-marketplace/issues/11) and [issue #15](https://github.com/trinaldirizki/reverse-marketplace/issues/15).
+
+## Guarded agent delivery
+
+`marketplace.AgentSender.SendAgentMessage` is a draft Go boundary for P1’s `send_message(text)` wrapper. P1 supplies a stable action ID, the authorized lead, seller and platform-qualified thread, and the connector channel. To deliver a checkout, P1 also supplies the checkout ID returned by `create_checkout` in the current turn. Only `Text` is model input. The mock supports public post replies. A direct message request returns `AGENT_CHANNEL_UNSUPPORTED`.
+
+The draft automatic-send policy accepts three exact Go-owned text templates.
+
+| Text | Lead state and required facts |
+| --- | --- |
+| `Thanks for your request.` | `active`, with current seller and lead item policy |
+| `I can offer this item for {price}.` | `active`, with a current in-stock offer |
+| `Checkout for {price}: {checkout_link}` | `reserved`, with the current offer and pending checkout from this turn |
+
+P4 reads P2’s lead, item, and rules and verifies the scope against the canonical mock thread. It renders the integer IDR price from the stored offer, checks the effective minimum, and verifies that checkout identity, offer, item, quantity, price, and deadline agree. The stored checkout URL must use the configured HTTP(S) origin and have the exact path `/checkout/{token}` with a nonempty URL-safe token. A reserved checkout may hold the last unit. P4 obtains the bearer URL from the trusted P2 record and includes it in the buyer-facing message. Keep checkout-bearing message text out of P1 prompts, action summaries, and dashboard projections. The connector receipt contains the action ID, opaque marketplace message ID, and publication time.
+
+After validation, the mock records an immutable pending draft. It appends the public message and saves the receipt together under one lock. That lock also enforces the current per-lead cap and a rolling one-minute rate limit per seller and platform, based on published messages. The mock publishes each stored offer and checkout at most once per lead. A message cap returns `AGENT_MESSAGE_CAP_REACHED` for P1 to surface to the seller. A rate limit returns retryable `AGENT_RATE_LIMITED`. Agent messages never enter the buyer reply feed.
+
+After an ambiguous or retryable publication failure, the caller can retry the same request. P4 reconciles a published receipt before reading current commerce facts. If the action has a draft and no receipt, P4 checks current facts again and requires them to render the original terms. Publication checks the checkout deadline again. Conflicting action ID reuse returns `IDEMPOTENCY_CONFLICT`. A `delivered` result is receipt-backed and may end the P1 turn. A `pending` result has a saved draft and an unconfirmed publication. A `rejected` result has a terminal policy or validation error for that attempt. A caller handles a dependency failure before staging through the typed error.
+
+The fixture test uses P1’s existing in-memory worker and tool loop, test-only intake and tool wrappers, and the P2 commerce fake. It exercises duplicate discovery and reply notifications, the initial offer, a checkout tool call that publishes nothing, and a same-turn send that publishes the link and stops the loop. The mock retains drafts and receipts for the lifetime of the store. Production integration still needs a durable P1 action and intake contract, a P4 migration slot and app registration, agreed approval and seller notification behavior, and a shared consistency rule for commerce changes between validation and publication. Track P1/P4 agreement in [issue #10](https://github.com/trinaldirizki/reverse-marketplace/issues/10) and commerce facts in [issue #8](https://github.com/trinaldirizki/reverse-marketplace/issues/8).
