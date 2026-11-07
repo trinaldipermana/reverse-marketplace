@@ -17,9 +17,10 @@ import (
 
 // Exact Go-owned templates keep buyer-facing terms independent of model prose.
 const (
-	AgentAcknowledgmentText = "Thanks for your request."
-	AgentOfferText          = "I can offer this item for {price}."
-	AgentCheckoutText       = "Checkout for {price}: {checkout_link}"
+	AgentAcknowledgmentText   = "Thanks for your request."
+	AgentOfferText            = "I can offer this item for {price}."
+	AgentCheckoutText         = "Checkout for {price}: {checkout_link}"
+	AgentOffTopicRedirectText = "I can help with product fit, price, stock, or checkout."
 )
 
 // AgentCommerceFacts is the read-only subset of P2's commerce boundary needed
@@ -129,7 +130,7 @@ func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageReq
 		return publication, &contracts.Error{Code: contracts.AgentChannelUnsupported, Message: "Agent delivery channel is unsupported"}
 	}
 	switch req.Text {
-	case AgentAcknowledgmentText, AgentOfferText, AgentCheckoutText:
+	case AgentAcknowledgmentText, AgentOfferText, AgentCheckoutText, AgentOffTopicRedirectText:
 	default:
 		return publication, &contracts.Error{Code: contracts.InvalidArgument, Message: "Agent text must match a supported message template"}
 	}
@@ -166,7 +167,7 @@ func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageReq
 			Post: domain.PostRef{Platform: lead.Platform, ExternalPostID: lead.PostID},
 		},
 	}
-	if req.Text == AgentAcknowledgmentText {
+	if req.Text == AgentAcknowledgmentText || req.Text == AgentOffTopicRedirectText {
 		return publication, nil
 	}
 	offer := lead.Offer

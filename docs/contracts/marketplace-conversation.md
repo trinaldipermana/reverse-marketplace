@@ -12,7 +12,7 @@ Use `marketplace.NewThreadHandler(threads, "mock")` to serve one configured plat
 - `GET /api/mock/threads/{id}` returns `{"messages":[]}` for an empty thread and orders populated history oldest-first, then by message ID for equal timestamps. The public message fields are `id`, `platform`, `external_post_id`, `buyer_id`, `thread_id`, `direction` (`buyer` or `agent`), `text`, and `created_at`, plus `external_reply_id`, `reply_to_message_id`, and `location` when present. Internal lead and seller IDs are excluded.
 - HTTP errors have `code` and `message`. Invalid input yields 400, unknown threads 404, conflicting replay 409, and a body larger than 64 KiB 413. The Go store reports typed contract errors and preserves context cancellation and deadlines.
 
-A reply to a known agent message in the same thread carries that message's internal lead and seller IDs as routing hints. A reply without a known target is saved with no routing hint. P1 must validate any hint against current P2 lead context before scheduling a turn and decide how to record unmatched or ambiguous events. The public thread can contain messages involving multiple sellers. P1's lead-scoped history and prompt visibility remain an agreement to record in #10.
+A reply to a known agent message in the same thread carries that message's internal lead and seller IDs as routing hints. A reply without a known target is saved with no routing hint. P1 must validate any hint against current P2 lead context before scheduling a turn and decide how to record unmatched or ambiguous events. The public thread can contain messages involving multiple sellers. Use `LeadPromptHistory(ctx, threadRef, leadID, sellerID)` for the exact lead and seller. It preserves message identity, direction, and order, excludes unmatched and competing seller messages, and redacts checkout links in both directions. The application cuts that history through the current buyer message before passing it to P1.
 
 ## Relay and recovery
 
@@ -30,11 +30,12 @@ The mock verifies in-process replay and lost-acknowledgment behavior. It loses h
 
 `marketplace.AgentSender.SendAgentMessage` is a draft Go boundary for P1’s `send_message(text)` wrapper. P1 supplies a stable action ID, the authorized lead, seller and platform-qualified thread, and the connector channel. To deliver a checkout, P1 also supplies the checkout ID returned by `create_checkout` in the current turn. Only `Text` is model input. The mock supports public post replies. A direct message request returns `AGENT_CHANNEL_UNSUPPORTED`.
 
-The draft automatic-send policy accepts three exact Go-owned text templates.
+The demo sender accepts these exact Go-owned English templates.
 
 | Text | Lead state and required facts |
 | --- | --- |
 | `Thanks for your request.` | `active`, with current seller and lead item policy |
+| `I can help with product fit, price, stock, or checkout.` | `active`, with current seller and lead item policy, used by the scope guard |
 | `I can offer this item for {price}.` | `active`, with a current in-stock offer |
 | `Checkout for {price}: {checkout_link}` | `reserved`, with the current offer and pending checkout from this turn |
 
