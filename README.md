@@ -128,9 +128,9 @@ type JSONGenerator interface {
 
 `llm.JSONRequest` contains `Instructions`, `Input`, `SchemaName` and `Schema`
 (`json.RawMessage`). Supply a strict JSON schema supported by OpenAI and a non-nil
-output pointer. P2 owns prompts, schemas and business validation; P1 owns provider
-configuration and execution. Application composition passes the configured shared
-client to discovery and runtime. The client imports neither service.
+output pointer. P2 owns discovery prompts, schemas and business validation; P1
+owns provider configuration and execution. Application composition passes the
+configured shared client to discovery and runtime. The client imports neither service.
 
 Success decodes the model's JSON into the output pointer. Refusals return
 `llm.ErrRefusal`; non-completed responses return `llm.ErrIncomplete`. Cancellation
@@ -158,10 +158,11 @@ Use `go run ./internal/discovery/cmd/demo` with exported OpenAI credentials for 
 ## Named system prompts
 
 The two conversation-system prompt names are `buyer_turn_scope` and
-`seller_negotiation`. They are proposed assets for P2 owner review in
-[issue #35](https://github.com/trinaldirizki/reverse-marketplace/issues/35),
-not silently adopted defaults. The linked files contain the complete canonical
-prompt content; update those files rather than maintaining duplicate text here.
+`seller_negotiation`. P1 owns these runtime prompts and the buyer-scope
+configuration, tracked in
+[issue #35](https://github.com/trinaldirizki/reverse-marketplace/issues/35).
+The linked files contain the complete canonical prompt content; update those
+files rather than maintaining duplicate text here.
 `buyer_turn_scope` preserves the classifier's existing schema name;
 `seller_negotiation` names the six-tool conversation instructions.
 
@@ -176,11 +177,10 @@ The P4 demo server introduced in PR #48 accepts these existing flags:
 go run ./cmd/server -turn-instructions prompts/seller_negotiation.txt -scope-config prompts/buyer_turn_scope.json
 ```
 
-Use this after the server and P2-reviewed assets are available, with the existing
-OpenAI and demo reset configuration. Merely adding prompt files does not start
-the server or enable live classification. Mixed requests remain blocked until
-P2 approves a commerce-only projection. Classifier failures fail closed; Go
-validates every commercial action and P4 validates final delivery.
+Use this with the existing OpenAI and demo reset configuration. Merely adding
+prompt files does not start the server or enable live classification. Mixed requests remain blocked until
+a safe commerce-only projection is implemented. Classifier failures fail closed;
+Go validates every commercial action and P4 validates final delivery.
 
 See [`prompts/README.md`](./prompts/README.md) for the opt-in live prompt checks
 and [`evals/buyer_turn_scope.json`](./evals/buyer_turn_scope.json) for expected
