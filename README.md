@@ -28,3 +28,72 @@ With Go 1.26 or newer, run `make check` to build and test the Go packages in the
 - If you find a bug, blocker, or compatibility problem, update the existing issue or open a new one. Apply the relevant area labels. If ownership is unclear, leave the issue unassigned and add `needs-triage`.
 
 See [AGENTS.md](./AGENTS.md) for the rules agents follow.
+
+## P1 OpenAI client
+
+The agent client lives in `internal/agent/`. It uses the OpenAI Responses API
+through Go's standard HTTP library; no external dependencies are required.
+
+Use Go 1.26 or newer. Set these environment variables:
+
+```dotenv
+OPENAI_API_KEY=your-local-key
+OPENAI_MODEL=gpt-6.1-sol
+```
+
+`OPENAI_MODEL` defaults to `gpt-6.1-sol`. The client reads exported environment
+variables; it does not automatically load `.env`. If your local `.env` contains
+shell-compatible assignments, load it in your terminal before running:
+
+```sh
+set -a
+source .env
+set +a
+go run ./internal/agent/cmd/smoke
+```
+
+The smoke command makes one live model request using synthetic input. It checks
+strict JSON output and prints the model and success status. It does not print
+the API key or send project documents. `.env` is ignored by Git.
+
+Run local tests without a key or network access:
+
+```sh
+go test ./...
+```
+
+### Calling the client
+
+```go
+cfg, err := agent.ConfigFromEnv()
+if err != nil {
+    return err
+}
+client, err := agent.NewOpenAIClient(cfg)
+if err != nil {
+    return err
+}
+response, err := client.Generate(ctx, agent.Request{
+    Messages: []agent.ChatMessage{
+        {Role: "developer", Content: "Answer briefly in the buyer's language."},
+        {Role: "user", Content: "Halo!"},
+    },
+})
+```
+
+Import `github.com/trinaldirizki/reverse-marketplace/internal/agent` from within
+this module. `Generate` returns text and tool calls; it does not execute tools or
+deliver messages. For tool continuation, pass the returned `Continuation`, tool
+results keyed by `ToolCall.ID`, and the tool definitions into the next request.
+Do not repeat the previous messages: the continuation already contains them.
+The continuation retains protocol items, including encrypted reasoning, in memory;
+do not log it. `GenerateJSON` accepts a JSON schema and a non-nil output pointer.
+
+Requests disable server-side response storage (`store: false`) and parallel tool
+calls. This storage setting does not replace OpenAI's broader data retention policies.
+Each call has a 20-second timeout, bounded by the caller's context. Refusals,
+incomplete output and API errors return errors without upstream error bodies.
+Automatic retries, tool execution, business guardrails and the worker are deferred.
+
+API reference: [function calling](https://developers.openai.com/api/docs/guides/function-calling)
+and [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
