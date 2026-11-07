@@ -13,4 +13,6 @@ npm run dev
 
 The match flow calls `POST /api/matches/search`, previews one best product–buyer match with a Shopee listing link, and calls `POST /api/conversations` when the seller starts a DM. These endpoints are mocked by the Vite development server until the P2 API contract is ready.
 
+The buyer demo at `/buyer` includes a social-post composer. Posts appear in the feed immediately. To send them to an API, set `VITE_BUYER_POSTS_API_URL` to its POST endpoint. The current request body is `{ "content", "author", "source" }`; the demo shows a local-only status while the endpoint is unset. The request contract can be updated when the API is provided.
+
 Run `npm run build` to create a production bundle.
