@@ -131,3 +131,7 @@ and [structured outputs](https://developers.openai.com/api/docs/guides/structure
 ## P2 inventory API integration
 
 The standalone inventory and policy harness runs with `go run ./internal/commerce/mockpos/cmd/demo` on localhost:8082. See [P2 inventory integration](docs/contracts/p2-inventory.md) for API examples, SQLite/CGO requirements, seeding, and the reservation adapter boundary. It does not run checkout, discovery, or the full marketplace.
+
+## P2 commerce and checkout integration
+
+Run `go run ./internal/commerce/cmd/demo` for combined inventory, lead, and mock checkout/payment APIs with real stock holds. See [P2 purchase integration](docs/contracts/p2-purchase-path.md) for service construction, routes, migration, and expiry behavior. Discovery, UI, and P1 turn dispatch are separate integrations.

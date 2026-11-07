@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -18,6 +19,7 @@ import (
 	"github.com/trinaldirizki/reverse-marketplace/internal/contracts"
 	"github.com/trinaldirizki/reverse-marketplace/internal/domain"
 	agentruntime "github.com/trinaldirizki/reverse-marketplace/internal/runtime"
+	agenttools "github.com/trinaldirizki/reverse-marketplace/internal/runtime/tools"
 	"github.com/trinaldirizki/reverse-marketplace/migrations"
 )
 
@@ -274,5 +276,42 @@ func TestUpgradePreservesExistingPhase2Inventory(t *testing.T) {
 	replay, err := current.Inventory().Adjust(ctx, mockpos.DemoSellerID, "item_thinkpad", "before-upgrade", mockpos.AdjustStock{ExpectedVersion: 1, Delta: -1, Reason: "existing POS sale"})
 	if err != nil || replay.PhysicalStock != 1 {
 		t.Fatalf("upgrade lost idempotency: %+v %v", replay, err)
+	}
+}
+
+func TestMergedP1ToolWrappersUseRealCommerce(t *testing.T) {
+	s, _ := integratedService(t)
+	lead := integratedLead(t, s, "actual-tools")
+	ctx := context.Background()
+	sequence := 0
+	wrappers, err := agenttools.NewCommerceTools(s, &lead, func(_ context.Context, name string) (string, error) {
+		sequence++
+		return fmt.Sprintf("p1:%s:%d", name, sequence), nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tools := map[string]agentruntime.Tool{}
+	for _, wrapper := range wrappers {
+		tools[wrapper.Definition().Name] = wrapper
+	}
+	blocked, err := tools["make_offer"].Run(ctx, json.RawMessage(`{"item_id":"item_thinkpad","price":1000}`))
+	if err != nil || !strings.Contains(blocked.Output, "PRICE_BELOW_MINIMUM") {
+		t.Fatalf("P1 rejection: %+v %v", blocked, err)
+	}
+	valid, err := tools["make_offer"].Run(ctx, json.RawMessage(`{"item_id":"item_thinkpad","price":5600000}`))
+	if err != nil || lead.Offer == nil || !strings.Contains(valid.Output, "offer_recorded") {
+		t.Fatalf("P1 offer: %+v %v", valid, err)
+	}
+	checkout, err := tools["create_checkout"].Run(ctx, json.RawMessage(`{}`))
+	if err != nil || lead.State != domain.LeadReserved || lead.Checkout == nil || !strings.Contains(checkout.Output, "checkout_created") {
+		t.Fatalf("P1 checkout: %+v %v", checkout, err)
+	}
+	if strings.Contains(checkout.Output, "checkout.test") || strings.Contains(checkout.Output, "/checkout/") {
+		t.Fatal("P1 tool output exposed bearer URL")
+	}
+	blocked, err = tools["make_offer"].Run(ctx, json.RawMessage(`{"item_id":"item_thinkpad","price":5700000}`))
+	if err != nil || !strings.Contains(blocked.Output, "INVALID_STATE") {
+		t.Fatalf("P1 negotiated after reservation: %+v %v", blocked, err)
 	}
 }

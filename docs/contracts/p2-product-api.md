@@ -1,6 +1,6 @@
 # P2 product API proposal
 
-Status: Draft for P2/P3 agreement. Tracking: [#11](https://github.com/trinaldirizki/reverse-marketplace/issues/11). The phase-2 inventory/policy implementation and examples are specified in [P2 inventory integration](p2-inventory.md); the remaining routes below are proposals.
+Status: Draft for P2/P3 agreement. Tracking: [#11](https://github.com/trinaldirizki/reverse-marketplace/issues/11). The phase-2 inventory/policy implementation and examples are specified in [P2 inventory integration](p2-inventory.md); lead and token checkout APIs are implemented as described in [purchase integration](p2-purchase-path.md). Discovery and optional seller hand-back routes remain proposals until their implementation slices.
 
 P2 owns discovery, inventory/POS, policy, lead, checkout, and mock payment backends. P3 owns their UI. P4 marketplace routes are outside this contract. Internal commerce records are not frontend response types.
 
