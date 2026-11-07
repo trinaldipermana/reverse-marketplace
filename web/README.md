@@ -50,6 +50,10 @@ IDs. Discovery starts P1 automatically, so **Open conversation** only opens the
 saved conversation and never calls `/api/conversations` in real mode. Active
 thread messages and seller-scoped lead state refresh every 1.5 seconds; API
 errors remain visible. Checkout-ready and paid states come from the lead API.
+On page load, the Conversations menu restores the seller's saved leads from
+`GET /api/leads`, then loads each saved thread and matches product details from
+`GET /api/inventory`. The menu therefore remains populated across page reloads;
+the next Search still calls discovery explicitly.
 No local seller message composer is shown because there is no authorized manual
 seller-send endpoint in this integration. Send replies using the buyer tooling.
 

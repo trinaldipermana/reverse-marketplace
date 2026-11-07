@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createConversation, searchBuyerMatches, getSellerThread, getSellerLead, sellerId, sellerMockMode } from '../../api/matches.js';
+import { createConversation, searchBuyerMatches, getSellerInbox, getSellerThread, getSellerLead, sellerId, sellerMockMode } from '../../api/matches.js';
 import Avatar from '../../components/Avatar.jsx';
 import Icon from '../../components/Icon.jsx';
 
@@ -122,6 +122,8 @@ function DashboardPage() {
   const [matchSummary, setMatchSummary] = useState(null);
   const [matchError, setMatchError] = useState('');
   const [threadError, setThreadError] = useState('');
+  const [inboxError, setInboxError] = useState('');
+  const [inboxLoading, setInboxLoading] = useState(!sellerMockMode);
   const searching = useRef(false);
 
   const active = threads.find((thread) => thread.id === activeId) ?? threads[0];
@@ -139,6 +141,32 @@ function DashboardPage() {
     setDraft('');
     setThreads((current) => current.map((item) => item.id === thread.id ? { ...item, unread: false } : item));
   }
+
+  useEffect(() => {
+    if (sellerMockMode) return undefined;
+    const controller = new AbortController();
+    let stopped = false;
+    async function loadInbox() {
+      setInboxLoading(true);
+      setInboxError('');
+      try {
+        const result = await getSellerInbox(controller.signal);
+        if (stopped) return;
+        setThreads((current) => {
+          const hydrated = result.threads.map((thread) => ({ ...current.find((item) => item.id === thread.id), ...thread }));
+          return [...hydrated, ...current.filter((thread) => !result.threads.some((loaded) => loaded.id === thread.id))];
+        });
+        setActiveId((current) => current ?? result.threads[0]?.id ?? null);
+        setInboxError(result.warning);
+      } catch (error) {
+        if (!stopped) setInboxError(error.message || 'Could not load saved conversations.');
+      } finally {
+        if (!stopped) setInboxLoading(false);
+      }
+    }
+    loadInbox();
+    return () => { stopped = true; controller.abort(); };
+  }, []);
 
   useEffect(() => {
     if (sellerMockMode || !active?.leadId) return;
@@ -297,11 +325,13 @@ function DashboardPage() {
             <aside className="inbox-panel">
               <div className="inbox-heading"><div><h2>Conversations</h2><span>{threads.length} total <i>·</i> {threads.filter((thread) => thread.unread).length} unread</span></div><button className="dots-button" aria-label="More inbox options" type="button">•••</button></div>
               <label className="search-box"><Icon>⌕</Icon><input aria-label="Search conversations" placeholder="Search buyers or products" value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>⌘ K</kbd></label>
+              {inboxError && <div className="search-error inbox-error" role="status">{inboxError}</div>}
               <div className="filter-row" role="tablist" aria-label="Filter conversations">
                 {filters.map((item) => <button key={item} type="button" role="tab" aria-selected={filter === item} className={filter === item ? 'filter active' : 'filter'} onClick={() => setFilter(item)}>{item}</button>)}
               </div>
               <div className="thread-list">
-                {visibleThreads.length === 0 && <div className="empty-list">No conversations match this view.</div>}
+                {inboxLoading && visibleThreads.length === 0 && <div className="empty-list">Loading saved conversations…</div>}
+                {!inboxLoading && visibleThreads.length === 0 && <div className="empty-list">{threads.length ? 'No conversations match this view.' : 'No saved conversations yet. Search buyers to find a match.'}</div>}
                 {visibleThreads.map((thread) => <button key={thread.id} type="button" className={`thread-row ${active?.id === thread.id ? 'current' : ''}`} onClick={() => selectThread(thread)}>
                   <Avatar initials={thread.initials} />
                   <span className="thread-copy"><span className="thread-title"><strong>{thread.name}</strong><time>{thread.time}</time></span><span className="thread-snippet">{thread.messages.length ? thread.messages[thread.messages.length - 1].text : thread.buyerPost}</span><span className="thread-footer"><span className={`status-pill ${thread.stage === 'Purchased' || thread.stage === 'Offer shared' ? 'positive' : thread.stage === 'New match' ? 'new' : ''}`}>{thread.stage === 'New match' && <i />} {thread.stage}</span><span>{thread.category}</span></span></span>
