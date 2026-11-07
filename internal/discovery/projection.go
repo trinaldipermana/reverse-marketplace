@@ -18,7 +18,7 @@ func matchView(seller string, post domain.Post, chosen eligibleCandidate, lead d
 		initials = strings.ToUpper(string(r))
 	}
 	availability := "Unavailable"
-	if chosen.Item.AvailableStock > 0 {
+	if chosen.Item.Active && chosen.Item.AvailableStock > 0 {
 		availability = "Available now"
 	}
 	return MatchView{MatchID: lead.ID, LeadID: lead.ID, ThreadID: post.ThreadID, MatchScore: int(math.Round(chosen.Match.Score * 100)), MatchReasons: []string{chosen.Match.Reason}, SellerID: seller, NotificationStatus: status, LeadState: lead.State,

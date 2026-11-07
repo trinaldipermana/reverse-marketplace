@@ -135,3 +135,7 @@ The standalone inventory and policy harness runs with `go run ./internal/commerc
 ## P2 commerce and checkout integration
 
 Run `go run ./internal/commerce/cmd/demo` for combined inventory, lead, and mock checkout/payment APIs with real stock holds. See [P2 purchase integration](docs/contracts/p2-purchase-path.md) for service construction, routes, migration, and expiry behavior. Discovery, UI, and P1 turn dispatch are separate integrations.
+
+## P2 synchronous discovery
+
+Use `go run ./internal/discovery/cmd/demo` with exported OpenAI credentials for the inventory-driven discovery component. It serves `POST /api/matches/search` with sellerId in the body and direct results. See [discovery integration](docs/contracts/p2-discovery.md) for limits, provenance, live smoke and runtime/UI wiring boundaries.
