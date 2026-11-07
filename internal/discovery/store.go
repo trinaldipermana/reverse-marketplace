@@ -155,12 +155,16 @@ func (s *Service) recordMatch(ctx context.Context, runID string, post domain.Pos
 }
 func (s *Service) dispatchLead(ctx context.Context, leadID string) (string, error) {
 	var event, status string
-	err := s.db.QueryRowContext(ctx, `SELECT event_id,status FROM runtime_notifications WHERE lead_id=?`, leadID).Scan(&event, &status)
+	var state domain.LeadState
+	err := s.db.QueryRowContext(ctx, `SELECT n.event_id,n.status,l.state FROM runtime_notifications n JOIN leads l ON l.id=n.lead_id WHERE n.lead_id=?`, leadID).Scan(&event, &status, &state)
 	if err != nil {
 		return "failed", err
 	}
 	if status == "accepted" {
 		return status, nil
+	}
+	if state != domain.LeadActive {
+		return "paused", nil
 	}
 	if _, err = s.db.ExecContext(ctx, `UPDATE runtime_notifications SET attempts=attempts+1,updated_at=? WHERE event_id=? AND status!='accepted'`, s.opts.Now().UnixMilli(), event); err != nil {
 		return "failed", err
