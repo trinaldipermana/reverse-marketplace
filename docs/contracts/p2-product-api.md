@@ -6,32 +6,42 @@ P2 owns discovery, inventory/POS, policy, lead, checkout, and mock payment backe
 
 ## Common conventions
 
-Proposed base prefix: `/api`. Seller identity comes from shared middleware; local demo transport is `X-Seller-ID`. Seller-resource lookups are always scoped to that context. Opaque checkout-token routes do not need a seller header. This is demo behavior, not production authentication.
+Base prefix: `/api`. Discovery accepts `sellerId` in the request body. The implemented inventory/policy component currently uses `X-Seller-ID`; its separate contract is documented in p2-inventory.md. All lookups remain seller-scoped. Checkout uses its opaque token. These seller selectors are demo conventions, not production authentication.
 
 Use string IDs, integer rupiah, currency `IDR`, quantity one, UTC RFC3339 timestamps, snake_case JSON, and explicit nulls for unknown values. Success uses `{ "data": ... }`; errors use `{ "error": { "code": "...", "message": "...", "retryable": false } }`. Paginated collections put `items` and `next_cursor` inside data. The response never exposes raw model/provider errors or hidden pricing policy.
 
 Proposed errors: invalid input 400; missing/scoped-out resource 404; invalid state, stock, version, or idempotency conflict 409; rate limit 429; temporary dependency failure 503. Idempotency keys accompany mutation requests as headers. Same key with different canonical input is a conflict.
 
-## Discovery button and polling
+## Synchronous discovery
 
-| Route | Request | Response |
-| --- | --- | --- |
-| POST /api/discovery/run | `{}` and Idempotency-Key | 202 with run_id, status, reused, status_url |
-| GET /api/discovery/runs/{id} | Seller context | Status, stage, timestamps, counts, warnings, truncation, notification summary |
-| GET /api/discovery/runs/{id}/results | cursor, limit | Paginated post/item matches with safe reasons, lead_id, new/existing outcome, query provenance |
-| GET /api/discovery/runs/{id}/queries | Seller context | Generated query text, source item IDs, status, result counts, safe errors |
+`POST /api/matches/search` accepts `{ "sellerId": "seller_demo" }`, runs discovery within the request, and returns `200 OK` with matches and summary counts. Use the frontend's existing route and request casing. No polling endpoints or background-run requirement are part of the initial discovery API. `/api/discovery/run` in the earlier route proposal is superseded by this route.
 
-Queries are generated from current inventory; the user need not enter keywords. One active run per seller. Repeated clicks return the active run; retrying the same idempotency key returns the original run.
+Queries are generated from current inventory; no seller-maintained keyword input is needed. P2 searches P4, preserves query/post provenance, extracts intent and matches, validates results, creates leads, and notifies P1 before returning. Do not wait for P1 to finish negotiation or send a message.
 
-Example start response:
+Discovery uses a frontend-compatible direct response rather than the inventory response envelope:
 
 ```json
-{"data":{"run_id":"run_demo","status":"queued","reused":false,"status_url":"/api/discovery/runs/run_demo"}}
+{
+  "requestsScanned": 12,
+  "listingsScanned": 3,
+  "matches": [{
+    "matchId": "match_demo",
+    "leadId": "lead_demo",
+    "matchScore": 92,
+    "matchReasons": ["16GB RAM and list price within budget"],
+    "buyer": {"id": "buyer_demo", "post": "Need a coding laptop under 6 juta"},
+    "product": {"id": "item_thinkpad", "name": "Used ThinkPad T480", "priceIDR": 5800000},
+    "notificationStatus": "accepted"
+  }],
+  "warnings": []
+}
 ```
 
-Run status: queued/running/completed/partial/failed. Stage: inventory/query_generation/search/matching/lead_creation/notification. Status counts distinguish distinct posts, eligible matches, newly created leads, existing leads, failed queries/posts, and pending/accepted/failed notifications. P1 acceptance is not proof that a message was sent. A run may complete with zero results; errors and partial coverage remain distinguishable.
+`requestsScanned` counts unique posts considered; `listingsScanned` counts eligible inventory items. Internal scores remain 0–1; matchScore is a rounded 0–100 display value. Additional presentation fields must come from trusted source data or P3 formatting, not fabricated buyer/item facts. Exact optional buyer/product presentation fields remain to align with P3.
 
-P3 may poll approximately every second while active, disable duplicate starts, show progress/partial results, and display clear empty outcomes. Do not render a failed model call as “no buying posts.”
+No matches is a successful empty array. Failures remain distinguishable from empty results; partial successful work includes safe warnings. Enforce a bounded request deadline and persist committed results so a retry does not repeat outreach. Do not return a queued run ID that requires polling. P3 shows one loading state until the request completes and handles explicit error/partial outcomes.
+
+Discovery automatically notifies P1 for newly persisted leads. A manual conversation-start option belongs to P1's runtime flow; P2 does not implement `/api/conversations` or make automatic discovery depend on that action. P1 owns coordination with P3 for manual starts. P2 still deduplicates leads and reuses stable event IDs for its own notifications.
 
 ## Inventory and mock POS
 
@@ -73,4 +83,4 @@ Checkout URLs are returned to P1 for delivery. Token lookup/response storage det
 
 ## Before implementation
 
-P3 confirms route/envelope conventions, seller context, polling, inventory edit payloads, policy visibility, and checkout states. P1 confirms the action-history read adapter separately. Exact field structs and OpenAPI/schema fixtures should be committed with the first HTTP slice. No existing clients require migration because these routes are not implemented yet.
+Discovery is synchronous with sellerId in the body. P3 confirms the remaining response presentation fields, inventory edit payloads, policy visibility, and checkout states. P1 confirms the action-history read adapter separately. Exact field structs and OpenAPI/schema fixtures should be committed with the first HTTP slice. No existing clients require migration because these routes are not implemented yet.

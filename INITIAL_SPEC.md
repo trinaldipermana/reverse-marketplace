@@ -1,6 +1,6 @@
 # Reverse marketplace MVP specification
 
-Version: 0.4. Updated: 7 November 2026. Track: Autonomous & Adaptive AI. Backend: Go.
+Version: 0.5. Updated: 7 November 2026. Track: Autonomous & Adaptive AI. Backend: Go.
 
 Implementation baseline. Open decisions and proposed implementation details are labeled separately.
 
@@ -214,7 +214,7 @@ Proposed routes and responsibilities; request/response schemas remain to be defi
 
 - `POST /api/mock/posts` and `POST /api/mock/threads/{id}/replies`: create feed activity.
 - `GET /api/mock/threads/{id}`: read offers and replies.
-- `POST /api/discovery/run`: trigger a deterministic discovery pass for demo control.
+- `POST /api/matches/search`: synchronous discovery with `{ "sellerId": "seller_demo" }` in the body; returns matched posts/items directly. Discovery persists leads and notifies P1 automatically. No polling is required. Any manual conversation-start option is owned by P1.
 - `GET /api/leads` and `GET /api/leads/{id}`: dashboard state, history, actions, and reasons.
 - `GET /api/inventory`: current inventory and availability.
 - `GET /api/seller/policy` and `PATCH /api/seller/policy`: demo seller settings.
