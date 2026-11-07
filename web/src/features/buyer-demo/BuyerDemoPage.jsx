@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { createBuyerPost } from '../../api/buyerPosts.js';
+import { useEffect, useState } from 'react';
+import { createBuyerPost, getBuyerThread, submitBuyerReply } from '../../api/buyerPosts.js';
 import './buyer-demo.css';
 
 const productUrl = 'https://shopee.co.id/Alesis-Nitro-Max-Electronic-Drum-Kit-Mesh-Head-Bluetooth-%E2%80%93-Set-Drum-Elektrik-Lengkap-i.1408254222.50702962973';
@@ -12,16 +12,64 @@ const initialPosts = [{
 
 export default function BuyerDemoPage() {
   const [reply, setReply] = useState('');
-  const [sent, setSent] = useState(false);
+  const [buyerMessages, setBuyerMessages] = useState([]);
+  const [chatState, setChatState] = useState('loading');
   const [postDraft, setPostDraft] = useState('');
   const [posts, setPosts] = useState(initialPosts);
   const [postState, setPostState] = useState('idle');
 
-  function sendReply(event) {
+  useEffect(() => {
+    let active = true;
+    getBuyerThread().then((result) => {
+      if (!active) return;
+      setBuyerMessages((result.messages ?? []).filter((message) => message.direction === 'buyer').map((message) => ({
+        ...message,
+        clientId: message.external_reply_id || message.id,
+        delivery: 'sent',
+      })));
+      setChatState('ready');
+    }).catch(() => {
+      if (active) setChatState('unavailable');
+    });
+    return () => { active = false; };
+  }, []);
+
+  async function sendReply(event) {
     event.preventDefault();
-    if (!reply.trim()) return;
-    setSent(true);
+    const text = reply.trim();
+    if (!text) return;
+    const externalReplyId = `buyer-reply-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+    setBuyerMessages((current) => [...current, {
+      clientId: externalReplyId,
+      external_reply_id: externalReplyId,
+      text,
+      created_at: new Date().toISOString(),
+      delivery: 'sending',
+    }]);
     setReply('');
+    await deliverReply(text, externalReplyId);
+  }
+
+  async function deliverReply(text, externalReplyId) {
+    try {
+      const result = await submitBuyerReply(text, externalReplyId);
+      setBuyerMessages((current) => current.map((message) => message.clientId === externalReplyId
+        ? { ...result.message, clientId: externalReplyId, delivery: 'sent' }
+        : message));
+      setChatState('ready');
+    } catch {
+      setBuyerMessages((current) => current.map((message) => message.clientId === externalReplyId
+        ? { ...message, delivery: 'failed' }
+        : message));
+      setChatState('unavailable');
+    }
+  }
+
+  function retryReply(message) {
+    setBuyerMessages((current) => current.map((item) => item.clientId === message.clientId
+      ? { ...item, delivery: 'sending' }
+      : item));
+    deliverReply(message.text, message.external_reply_id);
   }
 
   async function publishPost(event) {
@@ -35,7 +83,10 @@ export default function BuyerDemoPage() {
     setPostState('sending');
     try {
       const result = await createBuyerPost(content);
-      setPostState(result.apiConfigured ? 'sent' : 'local');
+      setPosts((current) => current.map((post) => post.id === postId
+        ? { ...post, id: result.external_post_id || post.id, apiStatus: 'sent' }
+        : post));
+      setPostState('sent');
     } catch {
       setPostState('failed');
     }
@@ -58,7 +109,7 @@ export default function BuyerDemoPage() {
             <div className="composer-user-avatar">A</div>
             <div className="composer-input-wrap"><label className="visually-hidden" htmlFor="social-post-input">Write a public post</label><textarea id="social-post-input" value={postDraft} onChange={(event) => setPostDraft(event.target.value)} placeholder="What's on your mind, Alex?" maxLength={500} /></div>
             <div className="composer-submit-row"><span>{postDraft.length}/500 characters</span><button type="submit" disabled={!postDraft.trim() || postState === 'sending'}>{postState === 'sending' ? 'Posting…' : 'Post'}</button></div>
-            <p className={`post-api-status ${postState}`} aria-live="polite">{postState === 'sent' ? 'Posted to the connected API and added to your feed.' : postState === 'local' ? 'Added to your feed. API endpoint not configured yet.' : postState === 'failed' ? 'Added to your feed, but the API request failed.' : postState === 'sending' ? 'Adding your post to the feed and sending it to the API…' : 'Demo posts appear in this feed immediately.'}</p>
+            <p className={`post-api-status ${postState}`} aria-live="polite">{postState === 'sent' ? 'Posted to the mock marketplace API.' : postState === 'failed' ? 'Added to your feed, but the API request failed.' : postState === 'sending' ? 'Saving your post to the marketplace API…' : 'Posts are saved to the mock marketplace API.'}</p>
           </form>
           <div className="social-post-list" aria-live="polite">
             {posts.map((post) => <article className="social-post-card" key={post.id}>
@@ -94,7 +145,12 @@ export default function BuyerDemoPage() {
               </div>
             </a>
             <div className="buyer-link-note"><span>↗</span> Product link shared in your social inbox</div>
-            {sent && <div className="buyer-sent-message"><span>Alex · just now</span><p>Thanks for reaching out! I’m interested in this kit.</p></div>}
+            <div className={`chat-api-status ${chatState}`} aria-live="polite">{chatState === 'loading' ? 'Loading saved replies…' : chatState === 'unavailable' ? 'Mock chat API is unavailable. Your draft stays here; retry when it is online.' : 'Replies are saved to the mock conversation API.'}</div>
+            {buyerMessages.map((message) => <div className="buyer-sent-message" key={message.clientId}>
+              <span>Alex · {message.delivery === 'sending' ? 'sending…' : message.delivery === 'failed' ? 'not sent' : 'sent'}</span>
+              <p>{message.text}</p>
+              {message.delivery === 'failed' && <button className="buyer-message-retry" type="button" onClick={() => retryReply(message)}>Retry</button>}
+            </div>)}
           </div>
           <form className="buyer-reply" onSubmit={sendReply}>
             <label htmlFor="buyer-reply-input">Reply to Northside Music</label>
@@ -103,7 +159,7 @@ export default function BuyerDemoPage() {
           </form>
         </section>
       </div>
-      <footer className="buyer-footer"><span>loopfind <b>·</b> connecting buyer requests with relevant products</span><span>Demo conversation · No message was actually sent</span></footer>
+      <footer className="buyer-footer"><span>loopfind <b>·</b> connecting buyer requests with relevant products</span><span>Mock marketplace API · no external social message is sent</span></footer>
     </main>
   );
 }

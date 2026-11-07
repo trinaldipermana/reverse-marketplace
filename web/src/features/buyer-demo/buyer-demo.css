@@ -85,8 +85,11 @@
 .buyer-product-cta b { margin-left: 4px; font-size: 12px; }
 .buyer-link-note { margin: 8px 0 0 3px; color: #a0aaa4; font-size: 8px; }
 .buyer-link-note span { color: #e65a3b; }
+.chat-api-status { margin: 12px 0 0 3px; color: #9ba69f; font-size: 8px; }
+.chat-api-status.unavailable { color: #aa6b43; }
 .buyer-sent-message { width: fit-content; max-width: 80%; margin: 14px 0 0 auto; padding: 8px 11px; border-radius: 12px 4px 12px 12px; background: #fff0eb; color: #5d514d; font-size: 10px; }
 .buyer-sent-message span { display: block; margin-bottom: 4px; color: #ab7668; font-size: 8px; }
+.buyer-message-retry { margin-top: 6px; padding: 0; border: 0; background: none; color: #d94324; font-size: 8px; font-weight: 700; }
 .buyer-reply { padding: 15px 19px 13px; border-top: 1px solid #edf0ee; }
 .buyer-reply label { display: block; margin-bottom: 7px; color: #68776f; font-size: 9px; font-weight: 600; }
 .buyer-reply-field { display: flex; gap: 8px; }
