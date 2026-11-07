@@ -198,4 +198,4 @@ query-planning and intent/ranking prompts.
 
 ### Discovery Backstage viewer
 
-The standalone [Discovery Backstage](tools/discovery-view/README.md) shows inventory, generated queries, retrieved posts, post-to-item matches and saved leads together. It runs locally against the matching discovery database; the previous step UI is preserved for comparison and rollback.
+The standalone [Discovery Backstage](tools/discovery-view/README.md) shows inventory, generated queries, retrieved posts, post-to-item matches and saved leads together. It runs locally against the matching discovery database.

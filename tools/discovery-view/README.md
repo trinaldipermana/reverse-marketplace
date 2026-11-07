@@ -24,8 +24,7 @@ python3 tools/discovery-view/server.py \
   --backend http://127.0.0.1:8082
 ```
 
-Open http://127.0.0.1:8766/. The old step view remains available at `/benchmark`;
-`/overview` is an alias of the default view. Use `--port` for another viewer port
+Open http://127.0.0.1:8766/. `/overview` is an alias of the default view. Use `--port` for another viewer port
 and `--runtime-label` to identify the actual backend runtime.
 
 The component harness defaults to a P1 context-load probe: runtime acceptance
@@ -58,17 +57,3 @@ Only its explicit discovery proxy action can trigger normal backend writes.
 python3 -m unittest discover -s tools/discovery-view -p test_server.py
 node --check tools/discovery-view/overview.js
 ```
-
-## Rollback
-
-The original step UI is preserved under `benchmarks/step-view-v1/`, with SHA-256
-hashes in `manifest.json`. To restore its original HTML, script and stylesheet:
-
-```sh
-python3 tools/discovery-view/restore_benchmark.py
-```
-
-This intentionally restores the snapshot's original timing as well. It does not
-modify the database or delete the overview. The original UI also stays available
-at `/benchmark` without restoring anything. The archived server is evidence of
-the benchmark version; keep the current server to retain both view routes.
