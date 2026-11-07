@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent
-STATIC = {"/benchmark": "benchmark.html", "/benchmark.html": "benchmark.html", "/overview": "overview.html", "/overview.html": "overview.html", "/overview.js": "overview.js", "/overview.css": "overview.css", "/product-dell.svg": "product-dell.svg", "/product-hp.svg": "product-hp.svg", "/product-thinkpad.svg": "product-thinkpad.svg", "/": "index.html", "/index.html": "index.html", "/app.js": "app.js", "/styles.css": "styles.css", "/style.css": "style.css", "/favicon.svg": "favicon.svg"}
+STATIC = {"/overview": "overview.html", "/overview.html": "overview.html", "/overview.js": "overview.js", "/overview.css": "overview.css", "/product-dell.svg": "product-dell.svg", "/product-hp.svg": "product-hp.svg", "/product-thinkpad.svg": "product-thinkpad.svg", "/": "index.html", "/index.html": "index.html", "/favicon.svg": "favicon.svg"}
 MIME = {".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml"}
 
 
