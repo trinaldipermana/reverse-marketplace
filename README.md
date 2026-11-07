@@ -12,6 +12,8 @@ Read the [MVP specification](./INITIAL_SPEC.md) and the [folder structure and ow
 
 With Go 1.26 or newer, run `make check` to build and test the Go packages in the scaffold.
 
+The seller dashboard prototype is in [`web/`](./web/README.md).
+
 ## Team ownership
 
 | Role | Owns | Proposed GitHub label |

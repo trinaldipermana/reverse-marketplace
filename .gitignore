@@ -21,9 +21,9 @@ profile.cov
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
-# React UI
-/ui/node_modules/
-/ui/dist/
+# React web application
+/web/node_modules/
+/web/dist/
 
 # Go workspace file
 go.work

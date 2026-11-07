@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { createConversation, searchBuyerMatches } from './api.js';
+import { createConversation, searchBuyerMatches } from '../../api/matches.js';
+import Avatar from '../../components/Avatar.jsx';
+import Icon from '../../components/Icon.jsx';
 
 const initialThreads = [
   {
@@ -109,15 +111,7 @@ const initialThreads = [
 
 const filters = ['All', 'Needs reply', 'New matches', 'Running sales'];
 
-function Icon({ children, className = '' }) {
-  return <span className={`icon ${className}`} aria-hidden="true">{children}</span>;
-}
-
-function Avatar({ initials, small = false }) {
-  return <span className={`avatar ${small ? 'avatar-small' : ''}`}>{initials}</span>;
-}
-
-function App() {
+function DashboardPage() {
   const [threads, setThreads] = useState(initialThreads);
   const [activeId, setActiveId] = useState('sam');
   const [filter, setFilter] = useState('All');
@@ -359,4 +353,4 @@ function App() {
   );
 }
 
-export default App;
+export default DashboardPage;
