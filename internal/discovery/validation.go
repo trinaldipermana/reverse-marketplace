@@ -17,6 +17,7 @@ type eligibleCandidate struct {
 	Match      ItemMatch
 	Item       domain.Item
 	DistanceKM float64
+	PartnerURL string
 }
 
 func validDiscoveryIdentity(id string) bool {
@@ -86,6 +87,14 @@ func (s *Service) validateCandidate(ctx context.Context, seller string, post dom
 	minimum, err := commerce.MinimumOfferPrice(item.ListPriceIDR, rules)
 	if err != nil {
 		return out, "POLICY", nil
+	}
+	if s.opts.FixedPrice {
+		listing, listingErr := commerce.PartnerListingFromItem(item, seller, item.ID, s.opts.PartnerHosts)
+		if listingErr != nil {
+			return out, "PARTNER_LISTING", nil
+		}
+		minimum = listing.PriceIDR
+		out.PartnerURL = listing.URL
 	}
 	if matched.Intent.BudgetIDR != nil {
 		if *matched.Intent.BudgetIDR <= 0 {
