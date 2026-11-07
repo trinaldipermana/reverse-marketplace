@@ -46,3 +46,22 @@ After validation, the mock records an immutable pending draft. It appends the pu
 After an ambiguous or retryable publication failure, the caller can retry the same request. P4 reconciles a published receipt before reading current commerce facts and again after a concurrent validation or staging failure. If the action has a draft and no receipt, P4 checks current facts again and requires them to render the original terms. Publication checks the checkout deadline again. Conflicting action ID reuse returns `IDEMPOTENCY_CONFLICT`. A `delivered` result is receipt-backed and may end the P1 turn. A `pending` result has a saved draft and an unconfirmed publication. A `rejected` result has a terminal policy or validation error for that attempt. A caller handles a dependency failure before staging through the typed error.
 
 The fixture test uses P1’s existing in-memory worker and tool loop, test-only intake and tool wrappers, and the P2 commerce fake. It exercises duplicate discovery and reply notifications, the initial offer, a checkout tool call that publishes nothing, and a same-turn send that publishes the link and stops the loop. The mock retains drafts and receipts for the lifetime of the store. Production integration still needs a durable P1 action and intake contract, a P4 migration slot and app registration, agreed approval and seller notification behavior, and a shared consistency rule for commerce changes between validation and publication. Track P1/P4 agreement in [issue #10](https://github.com/trinaldirizki/reverse-marketplace/issues/10) and commerce facts in [issue #8](https://github.com/trinaldirizki/reverse-marketplace/issues/8).
+
+## Fixed-price demo delivery
+
+The shared app can construct `NewFixedPriceAgentSender` with the same approved
+hosts as fixed-price discovery. It consumes the existing `AgentMessageRequest`
+and `AgentDeliveryResult`. For an active lead, pass the original template with a
+stable action ID and no checkout ID:
+
+- `I found a match at a fixed price of {listing_price}.`
+- `Here is the partner listing: {partner_listing_link}`
+
+The sender loads the lead's current seller-owned item and uses the trusted
+[partner listing validation](./partner-listing.md). It renders the fixed IDR
+price or inserts the stored HTTPS URL, preserving the query string. The mock
+allows one delivered message of each of these two kinds per lead. Retrying the
+same action returns the original matching receipt when published. An
+unconfirmed result is pending and contains no receipt. The buyer thread
+contains the rendered message. The receipt contains only action ID, message ID,
+and publication time.

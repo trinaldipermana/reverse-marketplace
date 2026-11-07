@@ -7,6 +7,7 @@ import (
 
 	"github.com/trinaldirizki/reverse-marketplace/internal/contracts"
 	"github.com/trinaldirizki/reverse-marketplace/internal/domain"
+	"github.com/trinaldirizki/reverse-marketplace/internal/marketplace"
 )
 
 var (
@@ -121,6 +122,10 @@ func (s *Threads) checkAgentLimits(publication contracts.AgentPublication, now t
 		previous := s.drafts[actionID]
 		if previous.Request.LeadID == req.LeadID {
 			leadCount++
+			if (req.Text == marketplace.AgentFixedPriceOutreachText || req.Text == marketplace.AgentPartnerListingText) &&
+				previous.Request.Text == req.Text {
+				return &contracts.Error{Code: contracts.InvalidState, Message: "This partner listing message has already been sent"}
+			}
 			if req.CheckoutID != "" && req.CheckoutID == previous.Request.CheckoutID ||
 				req.CheckoutID == "" && previous.Request.CheckoutID == "" && draft.OfferID != "" && draft.OfferID == previous.OfferID {
 				return &contracts.Error{Code: contracts.InvalidState, Message: "Commercial terms have already been sent"}

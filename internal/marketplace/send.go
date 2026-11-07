@@ -5,22 +5,26 @@ import (
 	"errors"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/trinaldirizki/reverse-marketplace/internal/commerce"
 	"github.com/trinaldirizki/reverse-marketplace/internal/contracts"
 	"github.com/trinaldirizki/reverse-marketplace/internal/domain"
 )
 
 // Exact Go-owned templates keep buyer-facing terms independent of model prose.
 const (
-	AgentAcknowledgmentText   = "Thanks for your request."
-	AgentOfferText            = "I can offer this item for {price}."
-	AgentCheckoutText         = "Checkout for {price}: {checkout_link}"
-	AgentOffTopicRedirectText = "I can help with product fit, price, stock, or checkout."
+	AgentAcknowledgmentText     = "Thanks for your request."
+	AgentOfferText              = "I can offer this item for {price}."
+	AgentCheckoutText           = "Checkout for {price}: {checkout_link}"
+	AgentOffTopicRedirectText   = "I can help with product fit, price, stock, or checkout."
+	AgentFixedPriceOutreachText = "I found a match at a fixed price of {listing_price}."
+	AgentPartnerListingText     = "Here is the partner listing: {partner_listing_link}"
 )
 
 // AgentCommerceFacts is the read-only subset of P2's commerce boundary needed
@@ -34,25 +38,49 @@ type AgentCommerceFacts interface {
 // AgentSender validates and delivers a model's proposed text using trusted
 // runtime scope, P2 facts, a P4 outbox, and a marketplace connector.
 type AgentSender struct {
-	commerce AgentCommerceFacts
-	outbox   contracts.AgentOutbox
-	publish  contracts.AgentMessagePublisher
-	origin   *url.URL
-	now      func() time.Time
+	commerce     AgentCommerceFacts
+	outbox       contracts.AgentOutbox
+	publish      contracts.AgentMessagePublisher
+	origin       *url.URL
+	now          func() time.Time
+	partnerHosts []string
 }
 
 func NewAgentSender(commerce AgentCommerceFacts, outbox contracts.AgentOutbox, publish contracts.AgentMessagePublisher, checkoutOrigin string, now func() time.Time) (*AgentSender, error) {
-	if commerce == nil || outbox == nil || publish == nil {
-		return nil, &contracts.Error{Code: contracts.DependencyUnavailable, Message: "Agent delivery is not configured"}
+	sender, err := newAgentSender(commerce, outbox, publish, now)
+	if err != nil {
+		return nil, err
 	}
 	origin, err := url.Parse(checkoutOrigin)
 	if err != nil || !checkoutHTTPURL(origin) || (origin.Path != "" && origin.Path != "/") || origin.String() != checkoutOrigin {
 		return nil, &contracts.Error{Code: contracts.InvalidArgument, Message: "A valid checkout origin is required"}
 	}
+	sender.origin = origin
+	return sender, nil
+}
+
+// NewFixedPriceAgentSender enables delivery of the matched partner listing.
+// The same operator-configured hosts must be supplied to fixed-price discovery.
+func NewFixedPriceAgentSender(commerce AgentCommerceFacts, outbox contracts.AgentOutbox, publish contracts.AgentMessagePublisher, approvedHosts []string, now func() time.Time) (*AgentSender, error) {
+	sender, err := newAgentSender(commerce, outbox, publish, now)
+	if err != nil {
+		return nil, err
+	}
+	if len(approvedHosts) == 0 {
+		return nil, &contracts.Error{Code: contracts.InvalidArgument, Message: "Approved partner hosts are required"}
+	}
+	sender.partnerHosts = slices.Clone(approvedHosts)
+	return sender, nil
+}
+
+func newAgentSender(commerce AgentCommerceFacts, outbox contracts.AgentOutbox, publish contracts.AgentMessagePublisher, now func() time.Time) (*AgentSender, error) {
+	if commerce == nil || outbox == nil || publish == nil {
+		return nil, &contracts.Error{Code: contracts.DependencyUnavailable, Message: "Agent delivery is not configured"}
+	}
 	if now == nil {
 		now = time.Now
 	}
-	return &AgentSender{commerce: commerce, outbox: outbox, publish: publish, origin: origin, now: now}, nil
+	return &AgentSender{commerce: commerce, outbox: outbox, publish: publish, now: now}, nil
 }
 
 // SendAgentMessage returns a receipt only after publication. A pending action
@@ -85,7 +113,7 @@ func (s *AgentSender) SendAgentMessage(ctx context.Context, req contracts.AgentM
 		}
 		return result, err
 	}
-	return deliveredAgentMessage(receipt), nil
+	return confirmedAgentMessage(req.ActionID, receipt)
 }
 
 func (s *AgentSender) reconcileAgentMessage(ctx context.Context, req contracts.AgentMessageRequest) (contracts.AgentDeliveryResult, error) {
@@ -104,7 +132,7 @@ func (s *AgentSender) reconcileAgentMessage(ctx context.Context, req contracts.A
 		return agentFailure(err, "Unable to reconcile the delivery receipt")
 	}
 	if delivered {
-		return deliveredAgentMessage(receipt), nil
+		return confirmedAgentMessage(req.ActionID, receipt)
 	}
 	return contracts.AgentDeliveryResult{}, nil
 }
@@ -129,9 +157,7 @@ func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageReq
 	if req.Channel != contracts.AgentPublicReply && req.Channel != contracts.AgentDirectMessage || !s.publish.SupportsAgentChannel(req.Channel) {
 		return publication, &contracts.Error{Code: contracts.AgentChannelUnsupported, Message: "Agent delivery channel is unsupported"}
 	}
-	switch req.Text {
-	case AgentAcknowledgmentText, AgentOfferText, AgentCheckoutText, AgentOffTopicRedirectText:
-	default:
+	if !s.acceptsTemplate(req.Text) {
 		return publication, &contracts.Error{Code: contracts.InvalidArgument, Message: "Agent text must match a supported message template"}
 	}
 	lead, err := s.commerce.GetLead(ctx, req.LeadID)
@@ -170,6 +196,22 @@ func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageReq
 	if req.Text == AgentAcknowledgmentText || req.Text == AgentOffTopicRedirectText {
 		return publication, nil
 	}
+	if s.partnerHosts != nil {
+		listing, err := commerce.PartnerListingFromItem(item, lead.SellerID, lead.ItemID, s.partnerHosts)
+		if err != nil {
+			return contracts.AgentPublication{}, err
+		}
+		if strings.ContainsFunc(listing.URL, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }) {
+			return contracts.AgentPublication{}, &contracts.Error{Code: contracts.InvalidArgument, Message: "Listing URL contains whitespace or control characters"}
+		}
+		switch req.Text {
+		case AgentFixedPriceOutreachText:
+			publication.Draft.RenderedText = strings.Replace(req.Text, "{listing_price}", "Rp "+strconv.FormatInt(listing.PriceIDR, 10), 1)
+		case AgentPartnerListingText:
+			publication.Draft.RenderedText = strings.Replace(req.Text, "{partner_listing_link}", listing.URL, 1)
+		}
+		return publication, nil
+	}
 	offer := lead.Offer
 	if offer == nil || !validAgentID(offer.ID) || offer.LeadID != lead.ID || offer.ItemID != item.ID || offer.Qty != 1 || offer.PriceIDR <= 0 {
 		return publication, &contracts.Error{Code: contracts.InvalidState, Message: "A valid stored offer is required"}
@@ -198,6 +240,16 @@ func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageReq
 		publication.Draft.RenderedText = strings.Replace(publication.Draft.RenderedText, "{checkout_link}", current.URL, 1)
 	}
 	return publication, nil
+}
+
+func (s *AgentSender) acceptsTemplate(text string) bool {
+	if text == AgentAcknowledgmentText || text == AgentOffTopicRedirectText {
+		return true
+	}
+	if s.partnerHosts != nil {
+		return text == AgentFixedPriceOutreachText || text == AgentPartnerListingText
+	}
+	return text == AgentOfferText || text == AgentCheckoutText
 }
 
 func effectiveAgentPriceFloor(listPrice int64, rules domain.Rules) int64 {
@@ -259,8 +311,13 @@ func validAgentID(id string) bool {
 	return id != "" && strings.TrimSpace(id) == id && utf8.ValidString(id) && strings.IndexFunc(id, unicode.IsControl) == -1
 }
 
-func deliveredAgentMessage(receipt contracts.AgentDeliveryReceipt) contracts.AgentDeliveryResult {
-	return contracts.AgentDeliveryResult{Status: contracts.AgentDeliveryDelivered, Receipt: receipt}
+func confirmedAgentMessage(actionID string, receipt contracts.AgentDeliveryReceipt) (contracts.AgentDeliveryResult, error) {
+	if receipt.ActionID != actionID || !validAgentID(receipt.MessageID) || receipt.PublishedAt.IsZero() {
+		return contracts.AgentDeliveryResult{Status: contracts.AgentDeliveryPending}, &contracts.Error{
+			Code: contracts.DependencyUnavailable, Message: "Unable to confirm message publication", Retryable: true,
+		}
+	}
+	return contracts.AgentDeliveryResult{Status: contracts.AgentDeliveryDelivered, Receipt: receipt}, nil
 }
 
 func agentRejection(code contracts.Code, message string) (contracts.AgentDeliveryResult, error) {
