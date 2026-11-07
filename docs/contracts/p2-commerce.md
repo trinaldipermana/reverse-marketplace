@@ -32,12 +32,12 @@ These signatures remain compatible with the merged P1 context loader and commerc
 
 ## Data conventions
 
-- IDs are strings, money is integer IDR, quantity is one, and timestamps use time.Time serialized as UTC RFC3339 by future HTTP handlers.
+- IDs are strings, money is integer IDR, quantity is one, and timestamps use time.Time serialized as UTC RFC3339 by HTTP handlers.
 - Lead states are active, reserved, escalated, paid, lost. Checkout states are pending, paid, expired, cancelled.
 - LeadRecord carries seller/post/buyer/thread identity, primary item, validated intent, state/version, and optional current offer/checkout.
 - Item carries seller ownership, inventory facts, location, list price, current computed available stock, and version. Available stock excludes unexpired active reservations.
 - Unknown budget/deadline and coordinates remain nil. Structured attributes are normalized string values; attribute names and matching schema still need alignment in discovery work.
-- Rules uses effective typed FloorPriceIDR/MaxDiscountBPS and operational limits; 1000 basis points means 10%. Item overrides are resolved by the future P2 service.
+- Rules uses effective typed FloorPriceIDR/MaxDiscountBPS and operational limits; 1000 basis points means 10%. Item overrides are resolved by P2 commerce.Service.
 - Private rules stay outside model prompts and public API projections. Price fields and bearer checkout URL are excluded from default JSON serialization as a defensive measure. A dedicated delivery operation may explicitly read Checkout.URL; product responses need explicit projections.
 
 ## Required production semantics
@@ -86,7 +86,7 @@ A fake is not evidence that production price/stock/checkout guarantees work. Lat
 - P1: confirm retrieval names and records, typed Rules versus the earlier map, and shared package ownership in #8.
 - TransitionLead preserves the four-argument baseline. Repeating the same target and normalized reason is a no-op; a changed reason or invalid source state rejects. No new model/tool metadata is required.
 - P1 GenerateJSON is available in internal/llm via OpenAIClient.GenerateJSON and llm.JSONRequest. P2 supplies schemas and business validation; use that shared client rather than defining a duplicate request type. OnLeadDiscovered acknowledgement/recovery remains tracked in [#6](https://github.com/trinaldirizki/reverse-marketplace/issues/6).
-- P4: provide GetPost/SearchPost identity and payload details in [#7](https://github.com/trinaldirizki/reverse-marketplace/issues/7). This proposal defines no competing marketplace/LLM structs.
+- P4: provide GetPost/SearchPost identity and payload details in [#7](https://github.com/trinaldirizki/reverse-marketplace/issues/7). This service defines no competing marketplace/LLM structs.
 - Team: choose database engine, ordered migration owner, and app wiring owner. Proposed: SQLite, P2 migration coordination, component-owned repositories. No database driver, connection setup, or migration is added here.
 - P3: agree product HTTP schemas in the next slice; these internal structs are not frozen frontend payloads.
 
