@@ -4,7 +4,7 @@
     "external_post_id": "post-demo-purchase",
     "buyer_id": "buyer-demo-purchase",
     "thread_id": "thread-demo-purchase",
-    "text": "Cari laptop bekas untuk coding, RAM minimal 16 GB, budget di bawah Rp6 juta. Butuh minggu ini di Jakarta.",
+    "text": "I'm looking for a used laptop for coding with at least 16 GB of RAM. My budget is under Rp 6 million, and I need it in Jakarta this week.",
     "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
   },
   "exception": {
@@ -12,7 +12,7 @@
     "external_post_id": "post-demo-exception",
     "buyer_id": "buyer-demo-exception",
     "thread_id": "thread-demo-exception",
-    "text": "Butuh laptop bekas untuk coding di Jakarta minggu ini. RAM minimal 16 GB, budget di bawah Rp6 juta.",
+    "text": "I need a used laptop for coding in Jakarta this week. It needs at least 16 GB of RAM, and my budget is under Rp 6 million.",
     "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
   },
   "non_buying": {
@@ -20,7 +20,7 @@
     "external_post_id": "post-demo-selling",
     "buyer_id": "buyer-demo-selling",
     "thread_id": "thread-demo-selling",
-    "text": "Dijual laptop bekas untuk coding, RAM 16 GB, Rp5,8 juta. Lokasi Jakarta, bisa diambil minggu ini.",
+    "text": "I'm selling a used laptop for coding with 16 GB of RAM for Rp 5.8 million. Pickup is available in Jakarta this week.",
     "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
   }
 }

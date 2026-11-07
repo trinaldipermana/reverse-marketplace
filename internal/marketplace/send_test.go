@@ -558,3 +558,52 @@ type faultPublisher struct {
 func (f faultPublisher) PublishAgentMessage(ctx context.Context, publication contracts.AgentPublication) (contracts.AgentDeliveryReceipt, error) {
 	return f.send(ctx, publication)
 }
+
+func TestAgentOffTopicRedirect(t *testing.T) {
+	const approved = "I can help with product fit, price, stock, or checkout."
+	t.Run("active without commercial terms with idempotency and message cap", func(t *testing.T) {
+		f := newSendFixture(t)
+		f.lead.Offer = nil
+		f.rules.MessageCap = 1
+		f.request.Text = approved
+
+		first, err := f.sender.SendAgentMessage(t.Context(), f.request)
+		if err != nil || first.Status != contracts.AgentDeliveryDelivered || first.Receipt.MessageID == "" {
+			t.Fatalf("redirect = %#v, %v", first, err)
+		}
+		replayed, err := f.sender.SendAgentMessage(t.Context(), f.request)
+		if err != nil || replayed != first {
+			t.Fatalf("redirect retry = %#v, %v, want %#v", replayed, err, first)
+		}
+		history := f.history(t)
+		if len(history) != 1 || history[0].ID != first.Receipt.MessageID || history[0].Text != approved {
+			t.Fatalf("redirect history = %#v", history)
+		}
+
+		f.request.ActionID = "another-redirect"
+		_, err = f.sender.SendAgentMessage(t.Context(), f.request)
+		assertSendCode(t, err, contracts.AgentMessageCapReached)
+	})
+
+	for _, test := range []struct {
+		name   string
+		change func(*sendFixture)
+		code   contracts.Code
+	}{
+		{"unapproved wording", func(f *sendFixture) { f.request.Text += " Here's a solution." }, contracts.InvalidArgument},
+		{"reserved lead", func(f *sendFixture) { f.lead.State = domain.LeadReserved }, contracts.InvalidState},
+		{"checkout in request", func(f *sendFixture) { f.request.CheckoutID = "checkout" }, contracts.InvalidState},
+		{"wrong scope", func(f *sendFixture) { f.request.SellerID = "other" }, contracts.InvalidArgument},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f := newSendFixture(t)
+			f.request.Text = approved
+			test.change(f)
+			_, err := f.sender.SendAgentMessage(t.Context(), f.request)
+			assertSendCode(t, err, test.code)
+			if len(f.history(t)) != 0 {
+				t.Fatal("rejected redirect reached the thread")
+			}
+		})
+	}
+}

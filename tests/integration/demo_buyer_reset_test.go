@@ -79,8 +79,8 @@ func TestDemoPurchaseFixtureTransportAfterReset(t *testing.T) {
 func TestDemoFixturesKeepBuyerActionsDistinct(t *testing.T) {
 	files := os.DirFS("../..")
 	want := map[string]map[string]string{
-		"purchase":   {"counteroffer": "5,4", "accept": "5,4"},
-		"exception":  {"below-floor": "5,1"},
+		"purchase":   {"counteroffer": "Rp 5.4 million", "accept": "Rp 5.4 million"},
+		"exception":  {"below-floor": "Rp 5.1 million"},
 		"non_buying": {},
 	}
 	identities := make(map[string]bool)

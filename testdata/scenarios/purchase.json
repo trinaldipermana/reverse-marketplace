@@ -3,11 +3,11 @@
   "replies": {
     "counteroffer": {
       "external_reply_id": "reply-demo-purchase-counteroffer",
-      "text": "Boleh Rp5,4 juta untuk laptop ini?"
+      "text": "Could you do Rp 5.4 million for the laptop?"
     },
     "accept": {
       "external_reply_id": "reply-demo-purchase-accept",
-      "text": "Saya setuju Rp5,4 juta. Bisa kirim link checkout?"
+      "text": "Rp 5.4 million works for me. Could you send me the checkout link?"
     }
   }
 }
