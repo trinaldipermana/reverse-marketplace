@@ -91,3 +91,5 @@ A fake is not evidence that production price/stock/checkout guarantees work. Lat
 - P3: agree product HTTP schemas in the next slice; these internal structs are not frozen frontend payloads.
 
 Verification for this slice: callback metadata forwarding, safe missing-configuration failures, cancellation before side effects, fixture isolation and seller scoping, typed error classification/unwrap, and accidental private-field JSON exposure. Production valid/rejected offers and checkout semantics remain open acceptance items in #8.
+
+Related proposals: [product APIs](p2-product-api.md) and [shared infrastructure](p2-infrastructure.md).
