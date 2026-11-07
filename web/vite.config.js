@@ -70,6 +70,11 @@ export default defineConfig(({ mode }) => {
   plugins: [react(), ...(env.VITE_SELLER_MOCK === 'true' ? [mockSellerApi()] : [])],
   server: {
     proxy: {
+      '/api/hackathon': {
+        target: env.DEMO_API_ORIGIN || 'http://127.0.0.1:8080',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/hackathon/, '/api'),
+      },
       '/api': {
         target: env.DEMO_API_ORIGIN || 'http://127.0.0.1:8080',
         changeOrigin: true,

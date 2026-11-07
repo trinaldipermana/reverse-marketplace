@@ -62,4 +62,6 @@ adapters use the mock marketplace API. Live buyer-side agent-message rendering,
 checkout-page routing, and Discovery Backstage same-run wiring are separate work;
 this seller integration does not claim the full browser purchase flow is complete.
 
+The opt-in judge screen is available at `/hackathon`. It saves one buyer post, runs discovery once for `seller_demo`, and follows the returned lead and thread. Its `/api/hackathon/*` requests are rewritten to the existing `/api/*` routes and use the configured Vite API proxy (`DEMO_API_ORIGIN`, default `http://127.0.0.1:8080`). Other screens keep using their existing `/api/*` routes. Start the unified server using [`cmd/server/README.md`](../cmd/server/README.md). “Link sent” appears only after the checkout URL is present in a saved seller message in the buyer thread.
+
 Run `npm run build` to create a production bundle.
