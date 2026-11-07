@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { createConversation, searchBuyerMatches } from '../../api/matches.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createConversation, searchBuyerMatches, getSellerThread, getSellerLead, sellerId, sellerMockMode } from '../../api/matches.js';
 import Avatar from '../../components/Avatar.jsx';
 import Icon from '../../components/Icon.jsx';
 
@@ -112,8 +112,8 @@ const initialThreads = [
 const filters = ['All', 'Needs reply', 'New matches'];
 
 function DashboardPage() {
-  const [threads, setThreads] = useState(initialThreads);
-  const [activeId, setActiveId] = useState('sam');
+  const [threads, setThreads] = useState(sellerMockMode ? initialThreads : []);
+  const [activeId, setActiveId] = useState(sellerMockMode ? 'sam' : null);
   const [filter, setFilter] = useState('All');
   const [query, setQuery] = useState('');
   const [draft, setDraft] = useState('');
@@ -121,6 +121,8 @@ function DashboardPage() {
   const [matchResult, setMatchResult] = useState(null);
   const [matchSummary, setMatchSummary] = useState(null);
   const [matchError, setMatchError] = useState('');
+  const [threadError, setThreadError] = useState('');
+  const searching = useRef(false);
 
   const active = threads.find((thread) => thread.id === activeId) ?? threads[0];
   const visibleThreads = useMemo(() => threads.filter((thread) => {
@@ -138,22 +140,69 @@ function DashboardPage() {
     setThreads((current) => current.map((item) => item.id === thread.id ? { ...item, unread: false } : item));
   }
 
+  useEffect(() => {
+    if (sellerMockMode || !active?.leadId) return;
+    setThreadError('');
+    let stopped = false;
+    let timer;
+    const controller = new AbortController();
+    async function update() {
+      try {
+        const [history, lead] = await Promise.all([
+          getSellerThread(active.id, controller.signal),
+          getSellerLead(active.leadId, controller.signal),
+        ]);
+        if (stopped) return;
+        setThreadError('');
+        setThreads(current => current.map(thread => thread.id === active.id ? {
+          ...thread,
+          stage: lead.state === 'paid' ? 'Purchased' : lead.state === 'reserved' ? 'Checkout ready' : lead.state === 'lost' ? 'Closed' : lead.state === 'escalated' ? 'Needs seller' : history.messages.some(m => m.direction === 'agent') ? 'Conversation active' : 'Waiting for agent',
+          messages: history.messages.map(message => ({ id: message.id, from: message.direction === 'agent' ? 'seller' : 'buyer', text: message.text, time: new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) })),
+        } : thread));
+      } catch (error) {
+        if (!stopped) setThreadError(error.message || 'Could not refresh conversation.');
+      } finally {
+        if (!stopped) timer = window.setTimeout(update, 1500);
+      }
+    }
+    update();
+    return () => { stopped = true; controller.abort(); window.clearTimeout(timer); };
+  }, [active?.id, active?.leadId]);
+
   async function runMatchSearch() {
+    if (searching.current) return;
+    searching.current = true;
     setMatchState('loading');
     setMatchError('');
+    setMatchResult(null);
     try {
-      const response = await searchBuyerMatches('northside-music');
+      const response = await searchBuyerMatches(sellerMockMode ? 'northside-music' : sellerId);
       setMatchSummary({ requests: response.requestsScanned, listings: response.listingsScanned });
       setMatchResult(response.matches?.[0] ?? null);
+      if (!sellerMockMode && response.matches?.length) {
+        const found = response.matches.map(match => ({
+          id: match.threadId, leadId: match.leadId, name: match.buyer.name,
+          initials: match.buyer.initials, product: match.product.name,
+          category: match.product.category || 'Seller inventory', source: match.buyer.source,
+          time: 'Now', stage: match.leadState === 'paid' ? 'Purchased' : 'Waiting for agent',
+          unread: false, buyerPost: match.buyer.post, listing: match.product.name,
+          price: match.product.price, productUrl: match.product.url,
+          messages: [], events: [],
+        }));
+        setThreads(current => [...found.map(thread => ({ ...current.find(old => old.id === thread.id), ...thread })), ...current.filter(old => !found.some(thread => thread.id === old.id))]);
+        setActiveId(found[0].id);
+      }
       setMatchState(response.matches?.length ? 'found' : 'empty');
     } catch (error) {
       setMatchError(error.message || 'Could not search for buyer matches. Try again.');
       setMatchState('error');
-    }
+    } finally { searching.current = false; }
   }
 
   async function startConversation(target = active, match = matchResult) {
-    if (!target || !['New match', 'DM started'].includes(target.stage)) return;
+    if (!target) return;
+    if (!sellerMockMode) { setActiveId(target.id); document.getElementById('conversation-area')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (!['New match', 'DM started'].includes(target.stage)) return;
     if (target.stage === 'DM started') {
       setActiveId(target.id);
       document.getElementById('conversation-area')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -193,7 +242,7 @@ function DashboardPage() {
   function sendMessage(event) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || !active || active.stage === 'New match') return;
+    if (!sellerMockMode || !text || !active || active.stage === 'New match') return;
     setThreads((current) => current.map((thread) => thread.id === active.id
       ? { ...thread, messages: [...thread.messages, { from: 'seller', text, time: 'Now' }] }
       : thread));
@@ -206,7 +255,7 @@ function DashboardPage() {
         <div className="brand-lockup"><div className="brand-mark">L</div><span>loopfind</span></div>
         <button className="workspace-switch" type="button">
           <Avatar initials="NS" small />
-          <span><strong>Northside Music</strong><small>Seller workspace</small></span>
+          <span><strong>{sellerMockMode ? 'Northside Music' : sellerId}</strong><small>Seller workspace</small></span>
           <Icon>⌄</Icon>
         </button>
         <nav className="side-nav" aria-label="Main navigation">
@@ -214,7 +263,7 @@ function DashboardPage() {
           <a className="nav-item selected" href="#conversation-area"><Icon>▤</Icon>Conversations<span className="nav-count">{threads.length}</span></a>
         </nav>
         <div className="sidebar-bottom">
-          <button className="profile-button" type="button"><Avatar initials="NS" /><span><strong>Northside Music</strong><small>Seller account</small></span><Icon>•••</Icon></button>
+          <button className="profile-button" type="button"><Avatar initials="NS" /><span><strong>{sellerMockMode ? 'Northside Music' : sellerId}</strong><small>Seller account</small></span><Icon>•••</Icon></button>
         </div>
       </aside>
 
@@ -231,7 +280,7 @@ function DashboardPage() {
               <div className="match-search-copy"><span className="eyebrow">BUYER MATCHING</span><h2>Find a buyer for your products</h2><p>Search public buyer requests and match them against your active catalog.</p></div>
               <button className="button button-primary search-button" type="button" onClick={runMatchSearch} disabled={matchState === 'loading'}><span>⌕</span>{matchState === 'loading' ? 'Searching…' : matchState === 'found' ? 'Search again' : 'Search now'}</button>
             </div>
-            {matchState === 'idle' && <div className="search-hint"><span>↳</span> Search calls the matching API and returns the single best product–buyer match for review.</div>}
+            {matchState === 'idle' && <div className="search-hint"><span>↳</span> Search discovers buyer matches and automatically queues the seller agent.</div>}
             {matchState === 'loading' && <div className="search-state"><span className="spinner" /> Scanning recent buyer intent against your product catalog…</div>}
             {matchState === 'empty' && <div className="search-state">No suitable buyer matches found. Try again later.</div>}
             {matchError && <div className="search-error" role="alert">{matchError}</div>}
@@ -239,7 +288,7 @@ function DashboardPage() {
               <div className="preview-banner"><span>BEST MATCH</span><span>{matchSummary?.requests ?? 0} buyer posts scanned · {matchSummary?.listings ?? 0} listings scanned</span><strong>{matchResult.matchScore}% fit</strong></div>
               <div className="preview-columns">
                 <div className="preview-buyer"><div className="preview-label">POTENTIAL BUYER</div><div className="preview-person"><Avatar initials={matchResult.buyer.initials} /><div><strong>{matchResult.buyer.name}</strong><span>{matchResult.buyer.source} · {matchResult.buyer.postedAt}</span></div></div><blockquote>“{matchResult.buyer.post}”</blockquote><div className="match-reasons">{matchResult.matchReasons.map((reason) => <span key={reason}>✓ {reason}</span>)}</div></div>
-                <div className="preview-product"><div className="preview-label">YOUR MATCHING PRODUCT</div><div className="preview-product-row"><div className="product-thumbnail">♬</div><div><strong>{matchResult.product.name}</strong><span>{matchResult.product.condition} · {matchResult.product.availability}</span><small>{matchResult.product.category}</small></div><b>{matchResult.product.price}</b></div><a className="shopee-link" href={matchResult.product.url} target="_blank" rel="noreferrer"><span>S</span> View on Shopee ↗</a><p>This is the single highest-ranked listing for this buyer request.</p><button className="button button-primary start-dm-button" type="button" onClick={() => { const target = threads.find((thread) => thread.id === matchResult.threadId); if (target) startConversation(target, matchResult); }}>{threads.find((thread) => thread.id === matchResult.threadId)?.stage === 'DM started' ? 'Open conversation' : 'Start DM with buyer'} <span>→</span></button></div>
+                <div className="preview-product"><div className="preview-label">YOUR MATCHING PRODUCT</div><div className="preview-product-row"><div className="product-thumbnail">▱</div><div><strong>{matchResult.product.name}</strong><span>{matchResult.product.condition} · {matchResult.product.availability}</span><small>{matchResult.product.category}</small></div><b>{matchResult.product.price}</b></div>{matchResult.product.url && <a className="shopee-link" href={matchResult.product.url} target="_blank" rel="noreferrer">View listing ↗</a>}<p>This is the single highest-ranked listing for this buyer request.</p><button className="button button-primary start-dm-button" type="button" onClick={() => { const target = threads.find((thread) => thread.id === matchResult.threadId); if (target) startConversation(target, matchResult); }}>{!sellerMockMode || threads.find((thread) => thread.id === matchResult.threadId)?.stage === 'DM started' ? 'Open conversation' : 'Start DM with buyer'} <span>→</span></button></div>
               </div>
             </article>}
           </section>
@@ -253,7 +302,7 @@ function DashboardPage() {
               </div>
               <div className="thread-list">
                 {visibleThreads.length === 0 && <div className="empty-list">No conversations match this view.</div>}
-                {visibleThreads.map((thread) => <button key={thread.id} type="button" className={`thread-row ${active.id === thread.id ? 'current' : ''}`} onClick={() => selectThread(thread)}>
+                {visibleThreads.map((thread) => <button key={thread.id} type="button" className={`thread-row ${active?.id === thread.id ? 'current' : ''}`} onClick={() => selectThread(thread)}>
                   <Avatar initials={thread.initials} />
                   <span className="thread-copy"><span className="thread-title"><strong>{thread.name}</strong><time>{thread.time}</time></span><span className="thread-snippet">{thread.messages.length ? thread.messages[thread.messages.length - 1].text : thread.buyerPost}</span><span className="thread-footer"><span className={`status-pill ${thread.stage === 'Purchased' || thread.stage === 'Offer shared' ? 'positive' : thread.stage === 'New match' ? 'new' : ''}`}>{thread.stage === 'New match' && <i />} {thread.stage}</span><span>{thread.category}</span></span></span>
                   {thread.unread && <i className="unread-dot" />}
@@ -262,7 +311,8 @@ function DashboardPage() {
               <button className="inbox-footer" type="button">Open all conversations <span>→</span></button>
             </aside>
 
-            <section className="conversation-panel">
+            {active ? <section className="conversation-panel">
+              {threadError && <div className="search-error" role="alert">{threadError}</div>}
               <div className="conversation-header">
                 <div className="buyer-heading"><Avatar initials={active.initials} /><div><strong>{active.name}</strong><span>Buyer request · {active.category}</span></div><span className="source-tag"><Icon>◉</Icon>{active.source}</span></div>
                 <div className="conversation-actions"><button className="icon-button" aria-label="More conversation actions" type="button">•••</button><button className="button button-outline" type="button">View original post <span>↗</span></button></div>
@@ -283,11 +333,11 @@ function DashboardPage() {
                   </div>)}
                 </div>}
               </div>
-              <form className={`message-composer ${active.stage === 'New match' ? 'composer-disabled' : ''}`} onSubmit={sendMessage}>
+              {sellerMockMode ? <form className={`message-composer ${active.stage === 'New match' ? 'composer-disabled' : ''}`} onSubmit={sendMessage}>
                 <textarea aria-label="Write a message" placeholder={active.stage === 'New match' ? 'Start a DM to contact this buyer' : 'Write a message…'} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={active.stage === 'New match'} />
                 <div className="composer-bottom"><div className="composer-hints"><span>↵ Enter to send</span><span>·</span><span>Messages stay linked to this match</span></div><div><button className="icon-button" type="button" aria-label="Attach file">＋</button><button className="button button-primary send-button" type="submit" disabled={active.stage === 'New match' || !draft.trim()}>Send <span>↑</span></button></div></div>
-              </form>
-            </section>
+              </form> : <div className="search-hint">The agent handles this conversation automatically. Send buyer replies from the buyer view.</div>}
+            </section> : <section className="conversation-panel"><div className="search-state">Discover buyers to load a real conversation.</div></section>}
 
           </section>
         </div>
