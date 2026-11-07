@@ -8,7 +8,9 @@ A buyer in Jakarta asks for a used laptop with 16 GB RAM under Rp6 million. The 
 
 ## Getting started
 
-Read the [MVP specification](./INITIAL_SPEC.md), then use its [build sequence](./INITIAL_SPEC.md#build-sequence-and-integration-gates) and [acceptance checks](./INITIAL_SPEC.md#acceptance-checks) to plan and verify your work. Local run commands will be added once the app is runnable.
+Read the [MVP specification](./INITIAL_SPEC.md) and the [folder structure and ownership guide](./docs/architecture.md). Use the spec's [build sequence](./INITIAL_SPEC.md#build-sequence-and-integration-gates) and [acceptance checks](./INITIAL_SPEC.md#acceptance-checks) as each component is implemented.
+
+With Go 1.26 or newer, run `make check` to build and test the Go packages in the scaffold.
 
 ## Team ownership
 
