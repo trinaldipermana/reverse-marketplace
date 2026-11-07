@@ -85,7 +85,7 @@ A fake is not evidence that production price/stock/checkout guarantees work. Lat
 
 - P1: confirm retrieval names and records, typed Rules versus the earlier map, and shared package ownership in #8.
 - TransitionLead currently preserves the four-argument baseline. Before production implementation, agree a stable action-key parameter or explicit idempotent repeat-target semantics; expected-version metadata is also open. The fake does not choose either behavior.
-- P1: provide GenerateJSON and OnLeadDiscovered semantics in [#6](https://github.com/trinaldirizki/reverse-marketplace/issues/6).
+- P1 GenerateJSON is available in internal/llm via OpenAIClient.GenerateJSON and llm.JSONRequest. P2 supplies schemas and business validation; use that shared client rather than defining a duplicate request type. OnLeadDiscovered acknowledgement/recovery remains tracked in [#6](https://github.com/trinaldirizki/reverse-marketplace/issues/6).
 - P4: provide GetPost/SearchPost identity and payload details in [#7](https://github.com/trinaldirizki/reverse-marketplace/issues/7). This proposal defines no competing marketplace/LLM structs.
 - Team: choose database engine, ordered migration owner, and app wiring owner. Proposed: SQLite, P2 migration coordination, component-owned repositories. No database driver, connection setup, or migration is added here.
 - P3: agree product HTTP schemas in the next slice; these internal structs are not frozen frontend payloads.
