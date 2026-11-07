@@ -23,11 +23,12 @@ const (
 	maxPostPageSize     = 100
 )
 
-// PostStore holds immutable posts, replay keys, and feed order for one mock
-// marketplace instance. Construct it with NewPostStore.
+// PostStore holds immutable posts, their thread bindings, replay keys, and
+// feed order for one mock marketplace instance. Construct it with NewPostStore.
 type PostStore struct {
 	mu         sync.RWMutex
 	posts      map[domain.PostRef]domain.Post
+	threads    map[domain.ThreadRef]struct{}
 	replayKeys map[string]domain.PostRef
 	feed       []domain.PostRef
 	cursorID   string
@@ -37,6 +38,7 @@ type PostStore struct {
 func NewPostStore(seed ...domain.Post) (*PostStore, error) {
 	store := &PostStore{
 		posts:      make(map[domain.PostRef]domain.Post, len(seed)),
+		threads:    make(map[domain.ThreadRef]struct{}, len(seed)),
 		replayKeys: make(map[string]domain.PostRef),
 		feed:       make([]domain.PostRef, 0, len(seed)),
 		cursorID:   rand.Text(),
@@ -71,7 +73,8 @@ func (s *PostStore) GetPost(ctx context.Context, ref domain.PostRef) (domain.Pos
 	return copyPost(post), nil
 }
 
-// CreatePost records the original post and its replay key atomically in memory.
+// CreatePost records the original post, its thread binding, and its replay key
+// atomically in memory.
 func (s *PostStore) CreatePost(ctx context.Context, post domain.Post, replayKey string) (domain.Post, error) {
 	if err := ctx.Err(); err != nil {
 		return domain.Post{}, err
@@ -108,8 +111,13 @@ func (s *PostStore) insert(post domain.Post) error {
 	if _, found := s.posts[post.PostRef]; found {
 		return &contracts.Error{Code: contracts.IdempotencyConflict, Message: "Post identity already exists"}
 	}
+	thread := domain.ThreadRef{Platform: post.Platform, ThreadID: post.ThreadID}
+	if _, found := s.threads[thread]; found {
+		return &contracts.Error{Code: contracts.IdempotencyConflict, Message: "Thread is bound to another post"}
+	}
 	post.CreatedAt = post.CreatedAt.UTC()
 	s.posts[post.PostRef] = copyPost(post)
+	s.threads[thread] = struct{}{}
 	s.feed = append(s.feed, post.PostRef)
 	return nil
 }
