@@ -4,7 +4,7 @@ The P4 [scenario fixtures](../testdata/scenarios) reference the buyer posts in [
 
 ## Local setup
 
-Start the integrated demo server with the mock marketplace routes, P1 runtime, P2 commerce services, and P3 dashboard and checkout surfaces. The CLI defaults to `http://127.0.0.1:8080`. Set `DEMO_BASE_URL` if the local server uses a different address.
+Start the integrated demo server with the mock marketplace routes, P1 runtime, P2 commerce services, and P3 dashboard and checkout surfaces. The CLI defaults to `http://127.0.0.1:8080`. Set `DEMO_BASE_URL` if the local server uses a different address. For reset, use an HTTP or HTTPS loopback origin such as `http://localhost:8080`.
 
 The wiring owner registers `POST /api/demo/reset` with `demo.RegisterReset` only in the opt-in demo configuration on a loopback listener. Supply the operator token from that configuration as `DEMO_RESET_TOKEN` in the CLI environment. The reset operation must block or fence old work before atomically clearing run state and restoring the agreed P2 seeds. That includes posts, messages, replay keys, lead and action history, pending events, delivery receipts, reservations, checkouts, and run-specific stock changes. A successful reset returns 204 once the new run can accept traffic.
 

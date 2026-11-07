@@ -59,12 +59,27 @@ func RegisterReset(mux *http.ServeMux, config ResetConfig) error {
 // Reset requests a fresh local demo run using the operator token.
 func (b Buyer) Reset(ctx context.Context, token string) error {
 	base, err := url.Parse(b.BaseURL)
-	if err != nil || (base.Hostname() != "localhost" && !isLoopbackIP(base.Hostname())) {
-		return errors.New("demo reset requires a loopback base URL")
+	if err != nil || (base.Scheme != "http" && base.Scheme != "https") ||
+		(base.Hostname() != "localhost" && !isLoopbackIP(base.Hostname())) ||
+		base.User != nil || (base.Path != "" && base.Path != "/") || base.RawPath != "" ||
+		base.RawQuery != "" || base.ForceQuery || strings.ContainsRune(b.BaseURL, '#') {
+		return errors.New("demo reset requires an HTTP or HTTPS loopback origin")
 	}
 	if token == "" {
 		return errors.New("demo reset requires an operator token")
 	}
+
+	client := b.Client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resetClient := *client
+	resetClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	b.Client = &resetClient
+	b.BaseURL = (&url.URL{Scheme: base.Scheme, Host: base.Host}).String()
+
 	_, err = b.request(ctx, http.MethodPost, resetPath, nil, "", token, http.StatusNoContent)
 	return err
 }
