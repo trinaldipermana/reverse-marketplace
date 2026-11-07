@@ -157,8 +157,9 @@ Use `go run ./internal/discovery/cmd/demo` with exported OpenAI credentials for 
 
 ## Named system prompts
 
-The two conversation-system prompt names are `buyer_turn_scope` and
-`seller_negotiation`. P1 owns these runtime prompts and the buyer-scope
+The existing purchase-flow system prompt names are `buyer_turn_scope` and
+`seller_negotiation`. The opt-in fixed-price draft is `fixed_price_partner_link`.
+P1 owns these runtime prompts and the buyer-scope
 configuration, tracked in
 [issue #35](https://github.com/trinaldirizki/reverse-marketplace/issues/35).
 The linked files contain the complete canonical prompt content; update those
@@ -170,6 +171,14 @@ files rather than maintaining duplicate text here.
 | --- | --- | --- |
 | `buyer_turn_scope` | Classify the current buyer message as `in_scope`, `off_topic`, or `mixed` before negotiation. | [`prompts/buyer_turn_scope.json`](./prompts/buyer_turn_scope.json): complete instructions, strict output schema, `schema_name: buyer_turn_scope`, and `decision_field: scope`. Pass to `-scope-config`. |
 | `seller_negotiation` | Produce grounded offers and accepted-offer checkout through the six conversation tools and P4-approved English message forms. | [`prompts/seller_negotiation.txt`](./prompts/seller_negotiation.txt): complete system instructions. Pass to `-turn-instructions`. |
+| `fixed_price_partner_link` | Draft instructions for fixed-price outreach and receipt-confirmed delivery of the existing partner listing, keeping the lead active. | [`prompts/fixed_price_partner_link.txt`](./prompts/fixed_price_partner_link.txt). Requires the opt-in Go policy and agreed P2/P4 listing/template bindings; not active by adding this file. |
+
+The fixed-price draft is tracked in [#54](https://github.com/trinaldirizki/reverse-marketplace/issues/54)
+and [#56](https://github.com/trinaldirizki/reverse-marketplace/issues/56). The
+P2 listing contract and P4 template originals are recorded in #52/#53. The
+approved URL fixture, implementation binding and opt-in mode selector still need
+integration agreement in #52/#53/#56. Selecting this prompt alone does not disable mutations or provide
+a partner-link delivery implementation. Existing purchase defaults stay unchanged.
 
 The P4 demo server introduced in PR #48 accepts these existing flags:
 
@@ -184,5 +193,5 @@ Go validates every commercial action and P4 validates final delivery.
 
 See [`prompts/README.md`](./prompts/README.md) for the opt-in live prompt checks
 and [`evals/buyer_turn_scope.json`](./evals/buyer_turn_scope.json) for expected
-semantic decisions. These two prompts cover conversation execution; they do not
-rename P2's existing discovery query-planning and intent/ranking prompts.
+semantic decisions. These runtime prompts do not rename P2's existing discovery
+query-planning and intent/ranking prompts.

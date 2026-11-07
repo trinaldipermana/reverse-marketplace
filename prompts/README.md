@@ -29,6 +29,28 @@ Only P4's approved English message forms may be sent; the prompt cannot add
 unsupported explanations, warranty promises, or delivery terms. The off-topic
 redirect belongs to the guard and validated P4 sender.
 
+## Opt-in fixed-price partner-link draft
+
+`fixed_price_partner_link.txt` is a separate file-backed system prompt for
+[#54](https://github.com/trinaldirizki/reverse-marketplace/issues/54) and
+[#56](https://github.com/trinaldirizki/reverse-marketplace/issues/56). It covers
+trusted fixed-price outreach and a buyer requesting the existing partner listing.
+It does not call the four mutation tools, change the lead from active, or claim
+checkout, payment, stock reservation or conversion. Link sent requires confirmed
+delivery; pending remains pending.
+
+P4 supplied the two exact approved message originals in
+[#53](https://github.com/trinaldirizki/reverse-marketplace/issues/53#issuecomment-6703378861):
+`I found a match at a fixed price of {listing_price}.` and
+`Here is the partner listing: {partner_listing_link}`. The prompt preserves those
+placeholders; P4 renders them from the seller/item-scoped trusted listing in Go.
+No new URL field, tool arguments or launch selector are chosen here. The approved
+URL fixture and runtime/delivery implementation binding are still integration
+dependencies in #52/#53/#56. Use this asset together with the opt-in Go policy;
+a prompt file alone does not enforce the mode. No new-mode live run is claimed.
+The existing `seller_negotiation.txt`, `buyer_turn_scope.json`, purchase startup
+command and existing evals remain unchanged.
+
 Run the deterministic asset-to-guard check without network access:
 
 ```sh
