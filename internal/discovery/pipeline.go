@@ -260,6 +260,8 @@ func (s *Service) Discover(parent context.Context, seller string) (result Result
 				continue
 			}
 			chosen.Item = currentItem
+			chosen.Match = ItemMatch{ItemID: currentItem.ID, Score: 0, Reason: "Existing lead kept its previously selected item"}
+			addWarning(&result, "EXISTING_LEAD", "An existing lead kept its previously selected item")
 		}
 		for i, candidate := range candidates {
 			status := "alternative"

@@ -76,23 +76,23 @@ func (s *Service) validateCandidate(ctx context.Context, seller string, post dom
 	if !requirementsMatch(matched.Intent.Requirements, item) {
 		return out, "ATTRIBUTES", nil
 	}
+	rules, err := s.commerce.GetRules(ctx, seller, item.ID)
+	if err != nil {
+		if businessRejection(err) {
+			return out, "POLICY", nil
+		}
+		return out, "", err
+	}
+	minimum, err := commerce.MinimumOfferPrice(item.ListPriceIDR, rules)
+	if err != nil {
+		return out, "POLICY", nil
+	}
 	if matched.Intent.BudgetIDR != nil {
 		if *matched.Intent.BudgetIDR <= 0 {
 			return out, "BUDGET", nil
 		}
 		if !strings.EqualFold(strings.TrimSpace(matched.BudgetCurrency), "IDR") {
 			return out, "CURRENCY", nil
-		}
-		rules, err := s.commerce.GetRules(ctx, seller, item.ID)
-		if err != nil {
-			if businessRejection(err) {
-				return out, "POLICY", nil
-			}
-			return out, "", err
-		}
-		minimum, err := commerce.MinimumOfferPrice(item.ListPriceIDR, rules)
-		if err != nil {
-			return out, "POLICY", nil
 		}
 		if minimum > *matched.Intent.BudgetIDR {
 			return out, "BUDGET", nil
