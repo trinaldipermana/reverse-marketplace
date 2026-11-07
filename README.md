@@ -127,3 +127,7 @@ does not implement a local JSON Schema or business-rule validator.
 
 API reference: [function calling](https://developers.openai.com/api/docs/guides/function-calling)
 and [structured outputs](https://developers.openai.com/api/docs/guides/structured-outputs).
+
+## P2 inventory API integration
+
+The standalone inventory and policy harness runs with `go run ./internal/commerce/mockpos/cmd/demo` on localhost:8082. See [P2 inventory integration](docs/contracts/p2-inventory.md) for API examples, SQLite/CGO requirements, seeding, and the reservation adapter boundary. It does not run checkout, discovery, or the full marketplace.
