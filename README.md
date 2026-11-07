@@ -154,3 +154,35 @@ Run `go run ./internal/commerce/cmd/demo` for combined inventory, lead, and mock
 ## P2 synchronous discovery
 
 Use `go run ./internal/discovery/cmd/demo` with exported OpenAI credentials for the inventory-driven discovery component. It serves `POST /api/matches/search` with sellerId in the body and direct results. See [discovery integration](docs/contracts/p2-discovery.md) for limits, provenance, live smoke and runtime/UI wiring boundaries.
+
+## Named system prompts
+
+The two conversation-system prompt names are `buyer_turn_scope` and
+`seller_negotiation`. They are proposed assets for P2 owner review in
+[issue #35](https://github.com/trinaldirizki/reverse-marketplace/issues/35),
+not silently adopted defaults. The linked files contain the complete canonical
+prompt content; update those files rather than maintaining duplicate text here.
+`buyer_turn_scope` preserves the classifier's existing schema name;
+`seller_negotiation` names the six-tool conversation instructions.
+
+| System prompt | Purpose | Canonical content and runtime mapping |
+| --- | --- | --- |
+| `buyer_turn_scope` | Classify the current buyer message as `in_scope`, `off_topic`, or `mixed` before negotiation. | [`prompts/buyer_turn_scope.json`](./prompts/buyer_turn_scope.json): complete instructions, strict output schema, `schema_name: buyer_turn_scope`, and `decision_field: scope`. Pass to `-scope-config`. |
+| `seller_negotiation` | Produce grounded offers and accepted-offer checkout through the six conversation tools and P4-approved English message forms. | [`prompts/seller_negotiation.txt`](./prompts/seller_negotiation.txt): complete system instructions. Pass to `-turn-instructions`. |
+
+The P4 demo server introduced in PR #48 accepts these existing flags:
+
+```sh
+go run ./cmd/server -turn-instructions prompts/seller_negotiation.txt -scope-config prompts/buyer_turn_scope.json
+```
+
+Use this after the server and P2-reviewed assets are available, with the existing
+OpenAI and demo reset configuration. Merely adding prompt files does not start
+the server or enable live classification. Mixed requests remain blocked until
+P2 approves a commerce-only projection. Classifier failures fail closed; Go
+validates every commercial action and P4 validates final delivery.
+
+See [`prompts/README.md`](./prompts/README.md) for the opt-in live prompt checks
+and [`evals/buyer_turn_scope.json`](./evals/buyer_turn_scope.json) for expected
+semantic decisions. These two prompts cover conversation execution; they do not
+rename P2's existing discovery query-planning and intent/ranking prompts.
