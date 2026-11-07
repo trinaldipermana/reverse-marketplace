@@ -19,19 +19,19 @@ Keep the timestamp and fixture the same when retrying a post. Reply retries reus
 
 ## Fixed-price checkout rehearsal
 
-Use this scenario with the fixed-price internal checkout configuration tracked
-in [#56](https://github.com/trinaldirizki/reverse-marketplace/issues/56). The
-seeded ThinkPad T480 lists for Rp 5.8 million. The judge view at `/hackathon`
-ends when the internal checkout link is visible in a saved seller message.
+Start the demo API with `-turn-instructions prompts/seller_negotiation.txt`
+for the internal checkout scenario tracked in
+[#56](https://github.com/trinaldirizki/reverse-marketplace/issues/56). The
+seeded ThinkPad T480 lists for Rp 5.8 million.
 
-1. Reset and set `DEMO_RUN_AT` as above. Run
-   `./scripts/demo.sh post fixed_price_checkout` to publish the English laptop
-   request, or enter the same request in the judge view.
+### CLI fixture and replay
+
+1. Reset and set `DEMO_RUN_AT` as above. Publish the laptop request with
+   `./scripts/demo.sh post fixed_price_checkout`.
 2. Trigger discovery once. Verify one lead and a saved seller offer at
-   Rp 5.8 million. With the CLI, read the seller message ID using
+   Rp 5.8 million. Read the offer message ID with
    `./scripts/demo.sh thread fixed_price_checkout`.
-3. Send the discount request. The buyer should see
-   “Sorry, I can't lower the listed price.” The lead should stay active at
+3. Request a discount. Verify the seller declines and the lead stays active at
    Rp 5.8 million with no reservation or checkout link.
 
    ```sh
@@ -41,19 +41,28 @@ ends when the internal checkout link is visible in a saved seller message.
 
 4. Explicitly accept Rp 5.8 million in reply to the saved refusal. Check that
    the lead is reserved and one seller message contains the internal checkout
-   link at Rp 5.8 million. Retry the acceptance with the same reply ID and
-   target and verify that the thread still contains one checkout link.
+   link at Rp 5.8 million. Run the same reply command again with the same
+   message ID and verify that the thread still contains one checkout link.
 
    ```sh
    ./scripts/demo.sh reply fixed_price_checkout accept "$REFUSAL_MESSAGE_ID"
    ./scripts/demo.sh thread fixed_price_checkout
    ```
 
-5. Reset and repeat. Capture the fallback recording after both runs produce the
-   expected browser evidence. Verify payment replay separately through the
-   checkout API.
+### Browser rehearsal
+
+Start a separate run with a reset and a fresh visit to `/hackathon`. Enter the
+same laptop request in the browser, trigger discovery once, and send the
+discount request and explicit acceptance through the browser reply box. Verify
+the price and lead state at the same checkpoints. The browser flow ends when
+the saved seller message shows the internal checkout link. Reset and repeat
+before capturing the fallback recording. Use the CLI fixture to verify reply
+replay and the checkout API to verify payment replay.
 
 ## Negotiation and purchase regression
+
+Start the demo API with `-turn-instructions prompts/legacy_negotiation.txt`
+to exercise the negotiated Rp 5.4 million offer.
 
 1. Run `./scripts/demo.sh post purchase` to publish a request for a used laptop for coding with at least 16 GB of RAM. The buyer needs it in Jakarta this week and has a budget under Rp 6 million.
 2. Trigger discovery from the seller dashboard when its API binding is available. To exercise the backend directly, run:
