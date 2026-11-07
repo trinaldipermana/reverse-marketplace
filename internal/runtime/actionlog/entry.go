@@ -18,6 +18,7 @@ const (
 	KindContextLoaded         Kind       = "context_loaded"
 	KindTurnStarted           Kind       = "turn_started"
 	KindTurnCompleted         Kind       = "turn_completed"
+	KindModelRound            Kind       = "model_round"
 	StatusOK                  Status     = "ok"
 	StatusBlocked             Status     = "blocked"
 	StatusFailed              Status     = "failed"
@@ -92,7 +93,7 @@ func (e Entry) Validate() error {
 		}
 	}
 	switch e.Kind {
-	case KindDiscovery, KindState, KindContextLoaded, KindTurnStarted:
+	case KindDiscovery, KindState, KindContextLoaded, KindTurnStarted, KindModelRound:
 		if e.Status != StatusOK || e.Code != CodeOK || e.Tool != "" || e.ToolCallID != "" {
 			return ErrInvalidEntry
 		}
@@ -147,6 +148,8 @@ func (e Entry) Summary() string {
 		return "agent turn started"
 	case KindTurnCompleted:
 		return "agent turn completed"
+	case KindModelRound:
+		return "model round started"
 	case KindTool:
 		return toolSummary[e.Tool]
 	}

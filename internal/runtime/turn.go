@@ -122,7 +122,7 @@ func (r *TurnRunner) RunTurn(ctx context.Context, input TurnInput) (result LoopR
 	if err != nil {
 		return LoopResult{}, err
 	}
-	model := &turnCallModel{model: r.model}
+	model := &turnCallModel{model: r.model, audit: audit}
 	bound := make([]Tool, 0, len(tools))
 	for _, tool := range tools {
 		if tool == nil {
@@ -146,10 +146,14 @@ func (r *TurnRunner) RunTurn(ctx context.Context, input TurnInput) (result LoopR
 type turnCallModel struct {
 	model   TurnModel
 	pending []llm.ToolCall
+	audit   *turnAudit
 }
 
 func (m *turnCallModel) Generate(ctx context.Context, request llm.Request) (llm.Response, error) {
 	m.pending = nil
+	if err := m.audit.record(ctx, actionlog.Entry{Kind: actionlog.KindModelRound, Status: actionlog.StatusOK, Code: actionlog.CodeOK}); err != nil {
+		return llm.Response{}, err
+	}
 	response, err := m.model.Generate(ctx, request)
 	if err == nil {
 		m.pending = append([]llm.ToolCall(nil), response.ToolCalls...)

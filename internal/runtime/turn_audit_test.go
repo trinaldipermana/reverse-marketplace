@@ -59,7 +59,7 @@ func TestTurnAuditRecordsSafeLifecycleAndPendingStatus(t *testing.T) {
 			}
 		}
 	}
-	if !pending || len(lifecycle) != 4 || lifecycle[0] != actionlog.KindContextLoaded || lifecycle[1] != actionlog.KindTurnStarted || lifecycle[3] != actionlog.KindTurnCompleted {
+	if !pending || len(lifecycle) != 5 || lifecycle[0] != actionlog.KindContextLoaded || lifecycle[1] != actionlog.KindTurnStarted || lifecycle[2] != actionlog.KindModelRound || lifecycle[4] != actionlog.KindTurnCompleted {
 		t.Fatalf("missing lifecycle or pending record: %v", lifecycle)
 	}
 }
