@@ -23,6 +23,7 @@ const (
 	AgentOfferText              = "I can offer this item for {price}."
 	AgentCheckoutText           = "Checkout for {price}: {checkout_link}"
 	AgentOffTopicRedirectText   = "I can help with product fit, price, stock, or checkout."
+	AgentFixedPriceDeclineText  = "Sorry, I can't lower the listed price."
 	AgentFixedPriceOutreachText = "I found a match at a fixed price of {listing_price}."
 	AgentPartnerListingText     = "Here is the partner listing: {partner_listing_link}"
 )
@@ -38,12 +39,13 @@ type AgentCommerceFacts interface {
 // AgentSender validates and delivers a model's proposed text using trusted
 // runtime scope, P2 facts, a P4 outbox, and a marketplace connector.
 type AgentSender struct {
-	commerce     AgentCommerceFacts
-	outbox       contracts.AgentOutbox
-	publish      contracts.AgentMessagePublisher
-	origin       *url.URL
-	now          func() time.Time
-	partnerHosts []string
+	commerce           AgentCommerceFacts
+	outbox             contracts.AgentOutbox
+	publish            contracts.AgentMessagePublisher
+	origin             *url.URL
+	now                func() time.Time
+	partnerHosts       []string
+	fixedPriceCheckout bool
 }
 
 func NewAgentSender(commerce AgentCommerceFacts, outbox contracts.AgentOutbox, publish contracts.AgentMessagePublisher, checkoutOrigin string, now func() time.Time) (*AgentSender, error) {
@@ -56,6 +58,17 @@ func NewAgentSender(commerce AgentCommerceFacts, outbox contracts.AgentOutbox, p
 		return nil, &contracts.Error{Code: contracts.InvalidArgument, Message: "A valid checkout origin is required"}
 	}
 	sender.origin = origin
+	return sender, nil
+}
+
+// NewFixedPriceCheckoutAgentSender uses the internal checkout path with a
+// fixed listing price. Runtime still owns establishing buyer acceptance.
+func NewFixedPriceCheckoutAgentSender(commerce AgentCommerceFacts, outbox contracts.AgentOutbox, publish contracts.AgentMessagePublisher, checkoutOrigin string, now func() time.Time) (*AgentSender, error) {
+	sender, err := NewAgentSender(commerce, outbox, publish, checkoutOrigin, now)
+	if err != nil {
+		return nil, err
+	}
+	sender.fixedPriceCheckout = true
 	return sender, nil
 }
 
@@ -193,7 +206,7 @@ func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageReq
 			Post: domain.PostRef{Platform: lead.Platform, ExternalPostID: lead.PostID},
 		},
 	}
-	if req.Text == AgentAcknowledgmentText || req.Text == AgentOffTopicRedirectText {
+	if req.Text == AgentAcknowledgmentText || req.Text == AgentOffTopicRedirectText || req.Text == AgentFixedPriceDeclineText {
 		return publication, nil
 	}
 	if s.partnerHosts != nil {
@@ -215,6 +228,9 @@ func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageReq
 	offer := lead.Offer
 	if offer == nil || !validAgentID(offer.ID) || offer.LeadID != lead.ID || offer.ItemID != item.ID || offer.Qty != 1 || offer.PriceIDR <= 0 {
 		return publication, &contracts.Error{Code: contracts.InvalidState, Message: "A valid stored offer is required"}
+	}
+	if s.fixedPriceCheckout && offer.PriceIDR != item.ListPriceIDR {
+		return publication, &contracts.Error{Code: contracts.InvalidState, Message: "Stored offer must match the listing price"}
 	}
 	if offer.PriceIDR < effectiveAgentPriceFloor(item.ListPriceIDR, rules) {
 		return publication, &contracts.Error{Code: contracts.PriceBelowMinimum, Message: "Stored offer does not meet current pricing policy"}
@@ -249,7 +265,7 @@ func (s *AgentSender) acceptsTemplate(text string) bool {
 	if s.partnerHosts != nil {
 		return text == AgentFixedPriceOutreachText || text == AgentPartnerListingText
 	}
-	return text == AgentOfferText || text == AgentCheckoutText
+	return text == AgentOfferText || text == AgentCheckoutText || (s.fixedPriceCheckout && text == AgentFixedPriceDeclineText)
 }
 
 func effectiveAgentPriceFloor(listPrice int64, rules domain.Rules) int64 {

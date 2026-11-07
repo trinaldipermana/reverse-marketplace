@@ -65,3 +65,16 @@ same action returns the original matching receipt when published. An
 unconfirmed result is pending and contains no receipt. The buyer thread
 contains the rendered message. The receipt contains only action ID, message ID,
 and publication time.
+
+## Fixed-price internal checkout
+
+The fixed-price checkout demo uses `NewFixedPriceCheckoutAgentSender`. The
+sender accepts `Sorry, I can't lower the listed price.` for an active lead,
+with no checkout ID. The existing offer and checkout templates still use
+stored terms, and the sender requires the stored offer price to match the
+seller item's current listing price. A checkout link still requires the live,
+matching internal reservation and a receipt-backed publication.
+
+P1 establishes explicit buyer acceptance before allowing checkout. P2 owns
+fixed-price enforcement when recording and reserving the offer. This sender
+can be wired after those controls are available. See [#56](https://github.com/trinaldirizki/reverse-marketplace/issues/56).

@@ -607,3 +607,90 @@ func TestAgentOffTopicRedirect(t *testing.T) {
 		})
 	}
 }
+
+func TestFixedPriceCheckoutAgentSender(t *testing.T) {
+	const refusal = "Sorry, I can't lower the listed price."
+	newFixture := func(t *testing.T) (*sendFixture, *marketplace.AgentSender) {
+		t.Helper()
+		f := newSendFixture(t)
+		f.item.ListPriceIDR = 5_800_000
+		sender, err := marketplace.NewFixedPriceCheckoutAgentSender(f.commerce, f.store, f.store, "https://checkout.example", func() time.Time { return f.now })
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f, sender
+	}
+	t.Run("exact English refusal on an active lead", func(t *testing.T) {
+		f, sender := newFixture(t)
+		f.lead.Offer = nil
+		f.request.Text = refusal
+		first, err := sender.SendAgentMessage(t.Context(), f.request)
+		if err != nil || first.Status != contracts.AgentDeliveryDelivered {
+			t.Fatalf("refusal = %#v, %v", first, err)
+		}
+		replayed, err := sender.SendAgentMessage(t.Context(), f.request)
+		history := f.history(t)
+		if err != nil || replayed != first || len(history) != 1 || history[0].Text != refusal || history[0].ID != first.Receipt.MessageID {
+			t.Fatalf("refusal replay = %#v, %v; history = %#v", replayed, err, history)
+		}
+	})
+	for _, test := range []struct {
+		name   string
+		change func(*sendFixture)
+		code   contracts.Code
+	}{
+		{"reworded refusal", func(f *sendFixture) { f.request.Text = refusal + " Offer Rp 5000000." }, contracts.InvalidArgument},
+		{"refusal after reservation", func(f *sendFixture) { f.reserve(); f.request.Text = refusal; f.request.CheckoutID = "" }, contracts.InvalidState},
+		{"offer at a discount", func(f *sendFixture) {}, contracts.InvalidState},
+		{"offer above list price", func(f *sendFixture) { f.lead.Offer.PriceIDR = 5_900_000 }, contracts.InvalidState},
+		{"checkout before reservation", func(f *sendFixture) { f.request.Text = marketplace.AgentCheckoutText }, contracts.InvalidState},
+		{"reserved checkout at a discount", func(f *sendFixture) { f.reserve() }, contracts.InvalidState},
+		{"partner message", func(f *sendFixture) { f.request.Text = marketplace.AgentPartnerListingText }, contracts.InvalidArgument},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f, sender := newFixture(t)
+			test.change(f)
+			result, err := sender.SendAgentMessage(t.Context(), f.request)
+			assertSendCode(t, err, test.code)
+			if result.Status == contracts.AgentDeliveryDelivered || len(f.history(t)) != 0 {
+				t.Fatalf("unexpected delivery: %#v", result)
+			}
+		})
+	}
+	t.Run("fixed offer and reserved checkout use stored terms", func(t *testing.T) {
+		f, sender := newFixture(t)
+		f.lead.Offer.PriceIDR = f.item.ListPriceIDR
+		offer, err := sender.SendAgentMessage(t.Context(), f.request)
+		if err != nil || offer.Status != contracts.AgentDeliveryDelivered {
+			t.Fatalf("offer = %#v, %v", offer, err)
+		}
+		f.reserve()
+		f.request.ActionID = "checkout-action"
+		result, err := sender.SendAgentMessage(t.Context(), f.request)
+		if err != nil || result.Status != contracts.AgentDeliveryDelivered {
+			t.Fatalf("checkout = %#v, %v", result, err)
+		}
+		replayed, err := sender.SendAgentMessage(t.Context(), f.request)
+		if err != nil || replayed != result {
+			t.Fatalf("checkout replay = %#v, %v", replayed, err)
+		}
+		history := f.history(t)
+		if len(history) != 2 {
+			t.Fatalf("history has %d messages, want two", len(history))
+		}
+		byID := map[string]string{history[0].ID: history[0].Text, history[1].ID: history[1].Text}
+		if byID[offer.Receipt.MessageID] != "I can offer this item for Rp 5800000." || byID[result.Receipt.MessageID] != "Checkout for Rp 5800000: "+checkoutURL {
+			t.Fatalf("history = %#v", history)
+		}
+	})
+	t.Run("existing checkout sender preserves negotiation", func(t *testing.T) {
+		f, _ := newFixture(t)
+		result, err := f.sender.SendAgentMessage(t.Context(), f.request)
+		if err != nil || result.Status != contracts.AgentDeliveryDelivered {
+			t.Fatalf("negotiable offer = %#v, %v", result, err)
+		}
+		f.request.ActionID, f.request.Text = "refusal", refusal
+		_, err = f.sender.SendAgentMessage(t.Context(), f.request)
+		assertSendCode(t, err, contracts.InvalidArgument)
+	})
+}
