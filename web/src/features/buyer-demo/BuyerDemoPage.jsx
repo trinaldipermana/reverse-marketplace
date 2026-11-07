@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createBuyerPost, getBuyerThread, submitBuyerReply } from '../../api/buyerPosts.js';
+import { buildBuyerPost, createBuyerPost, getBuyerThread, submitBuyerReply } from '../../api/buyerPosts.js';
 import './buyer-demo.css';
 
 const productUrl = 'https://shopee.co.id/Alesis-Nitro-Max-Electronic-Drum-Kit-Mesh-Head-Bluetooth-%E2%80%93-Set-Drum-Elektrik-Lengkap-i.1408254222.50702962973';
@@ -77,17 +77,34 @@ export default function BuyerDemoPage() {
     const content = postDraft.trim();
     if (!content || postState === 'sending') return;
 
-    const postId = `post-${Date.now()}`;
-    setPosts((current) => [{ id: postId, content, time: 'just now', matched: false }, ...current]);
+    const apiPost = buildBuyerPost(content);
+    const postId = apiPost.external_post_id;
+    setPosts((current) => [{ id: postId, externalPost: apiPost, content, time: 'just now', matched: false, delivery: 'sending' }, ...current]);
     setPostDraft('');
     setPostState('sending');
     try {
-      const result = await createBuyerPost(content);
+      const result = await createBuyerPost(apiPost);
       setPosts((current) => current.map((post) => post.id === postId
-        ? { ...post, id: result.external_post_id || post.id, apiStatus: 'sent' }
+        ? { ...post, id: result.external_post_id || post.id, delivery: 'sent' }
         : post));
       setPostState('sent');
     } catch {
+      setPosts((current) => current.map((post) => post.id === postId ? { ...post, delivery: 'failed' } : post));
+      setPostState('failed');
+    }
+  }
+
+  async function retryPost(post) {
+    setPosts((current) => current.map((item) => item.id === post.id ? { ...item, delivery: 'sending' } : item));
+    setPostState('sending');
+    try {
+      const result = await createBuyerPost(post.externalPost);
+      setPosts((current) => current.map((item) => item.id === post.id
+        ? { ...item, id: result.external_post_id || item.id, delivery: 'sent' }
+        : item));
+      setPostState('sent');
+    } catch {
+      setPosts((current) => current.map((item) => item.id === post.id ? { ...item, delivery: 'failed' } : item));
       setPostState('failed');
     }
   }
@@ -115,6 +132,8 @@ export default function BuyerDemoPage() {
             {posts.map((post) => <article className="social-post-card" key={post.id}>
               <div className="social-post-top"><span className="social-group-avatar">♪</span><div><strong>Electronic Drum Kits &amp; Gear</strong><span>Public group · Alex Rivera · {post.time} <b>· 🌐</b></span></div><button type="button" aria-label="Post options">•••</button></div>
               <div className="social-post-text">{post.content}</div>
+              {post.delivery === 'failed' && <div className="social-post-delivery"><span>Couldn’t save this post to the API.</span><button type="button" onClick={() => retryPost(post)}>Retry</button></div>}
+              {post.delivery === 'sending' && <div className="social-post-delivery pending">Saving post…</div>}
               {post.matched && <><div className="social-post-attachment"><div className="social-drum-art"><span>♬</span><i>WANTED</i></div><div><strong>Looking for recommendations</strong><span>Electronic drum kit · Beginner · Open to used</span></div></div><div className="social-reaction-summary"><span>👍 ❤️</span> 12 <span>3 comments</span></div></>}
               <div className="social-post-actions"><span>👍 Like</span><span>◯ Comment</span><span>↗ Share</span></div>
               {post.matched && <div className="social-post-match"><span>✦</span> A seller found a product match for this post</div>}
