@@ -4,7 +4,7 @@ P4 owns the mock thread and reply store. P1 owns lead resolution and conversatio
 
 ## Thread and HTTP identity
 
-Create a `mock.Threads` using a `contracts.PostLookup`. After saving a post, call `OpenThread(ctx, post.PostRef)`. The store binds the platform-qualified thread to the post and buyer from lookup. Opening the same binding again succeeds. A different post or buyer for the same platform and thread is a conflict. The same thread ID can exist on different platforms.
+The mock post store enforces one canonical post per platform and thread when seeding or creating posts. Multiple seller leads can share that thread. Create a `mock.Threads` using a `contracts.PostLookup` and call `OpenThread(ctx, post.PostRef)` after saving a post. The thread store binds the platform-qualified thread to the post and buyer from lookup. Opening the same binding again succeeds. A different post or buyer for the same platform and thread is a conflict. The same thread ID can exist on different platforms. Post save and thread registration are separate mock calls. The integrated registration contract and P2 consumer review remain open.
 
 Use `marketplace.NewThreadHandler(threads, "mock")` to serve one configured platform. Registering that handler in the shared app remains an integration step. The request path contains the thread ID, while the handler configuration supplies its platform.
 

@@ -171,6 +171,56 @@ func TestPostFeedResumesAfterExhaustionAndIncludesBackdatedInserts(t *testing.T)
 	assertCode(t, err, contracts.InvalidArgument)
 }
 
+func TestPostStoreCanonicalThreadBinding(t *testing.T) {
+	ctx := context.Background()
+	first := post("mock", "first", "", "first post", fixtureTime)
+	second := post("mock", "second", "", "conflicting post", fixtureTime)
+	second.ThreadID, second.BuyerID = first.ThreadID, first.BuyerID
+	otherPlatform := second
+	otherPlatform.Platform = "other"
+
+	t.Run("seed binds one post per platform and thread", func(t *testing.T) {
+		_, err := mock.NewPostStore(first, second)
+		assertCode(t, err, contracts.IdempotencyConflict)
+		store := newStore(t, first, otherPlatform)
+		feed, err := store.ReadPosts(ctx, "", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertRefs(t, feed.Posts, first, otherPlatform)
+	})
+
+	t.Run("create rejects a conflicting binding without reserving the key", func(t *testing.T) {
+		store := newStore(t)
+		if got, err := store.CreatePost(ctx, first, "first-key"); err != nil || got != first {
+			t.Fatalf("create first = %+v, %v", got, err)
+		}
+		_, err := store.CreatePost(ctx, second, "second-key")
+		assertCode(t, err, contracts.IdempotencyConflict)
+		_, err = store.GetPost(ctx, second.PostRef)
+		assertCode(t, err, contracts.NotFound)
+
+		if got, err := store.CreatePost(ctx, otherPlatform, "second-key"); err != nil || got != otherPlatform {
+			t.Fatalf("create on other platform using unreserved key = %+v, %v", got, err)
+		}
+		if got, err := store.CreatePost(ctx, first, "first-key"); err != nil || got != first {
+			t.Fatalf("identical replay = %+v, %v", got, err)
+		}
+		feed, err := store.ReadPosts(ctx, "", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertRefs(t, feed.Posts, first, otherPlatform)
+
+		threads := mock.NewThreads(store, nil)
+		for _, saved := range feed.Posts {
+			if err := threads.OpenThread(ctx, saved.PostRef); err != nil {
+				t.Fatalf("open saved post's thread %v: %v", saved.PostRef, err)
+			}
+		}
+	})
+}
+
 func TestPostCreateConcurrentReplaysWriteOnce(t *testing.T) {
 	ctx := context.Background()
 	entry := post("mock", "post-1", "Jakarta", "  Original post text\n", fixtureTime)
