@@ -13,7 +13,9 @@ CREATE TABLE discovery_queries (
 );
 CREATE TABLE discovery_posts (
  id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES discovery_runs(id), platform TEXT NOT NULL, external_post_id TEXT NOT NULL,
- post_json TEXT NOT NULL CHECK(json_valid(post_json)), created_at INTEGER NOT NULL,
+ post_json TEXT NOT NULL CHECK(json_valid(post_json)),
+ matching_status TEXT NOT NULL DEFAULT 'pending' CHECK(matching_status IN('pending','completed','failed')),
+ intent_json TEXT CHECK(intent_json IS NULL OR json_valid(intent_json)), decision_code TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL,
  UNIQUE(run_id,platform,external_post_id), UNIQUE(run_id,id)
 );
 CREATE TABLE discovery_query_posts (

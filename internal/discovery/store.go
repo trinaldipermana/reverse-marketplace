@@ -190,3 +190,21 @@ func (s *Service) RecoverInterruptedRuns(ctx context.Context) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE discovery_runs SET status='failed',finished_at=? WHERE status='running'`, s.opts.Now().UnixMilli())
 	return err
 }
+
+// recordPostDecision preserves extraction evidence even for nonbuying/no-match
+// posts, so provider failures cannot be confused with a valid ignored result.
+func (s *Service) recordPostDecision(ctx context.Context, runID string, post domain.Post, output PostMatch, status, code string) error {
+	if status != "completed" && status != "failed" {
+		return errors.New("invalid matching status")
+	}
+	var data any
+	if status == "completed" {
+		raw, err := json.Marshal(output)
+		if err != nil {
+			return err
+		}
+		data = string(raw)
+	}
+	_, err := s.db.ExecContext(ctx, `UPDATE discovery_posts SET matching_status=?,intent_json=?,decision_code=? WHERE run_id=? AND platform=? AND external_post_id=?`, status, data, code, runID, post.Platform, post.ExternalPostID)
+	return err
+}
