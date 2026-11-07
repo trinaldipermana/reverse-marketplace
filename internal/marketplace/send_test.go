@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -128,6 +129,35 @@ func TestAgentSendGuardrails(t *testing.T) {
 			assertSendCode(t, err, contracts.InvalidState)
 			if len(f.history(t)) != 0 {
 				t.Fatal("unsafe checkout link reached the buyer")
+			}
+		})
+	}
+}
+
+func TestCheckoutOriginRequiresASCIIHostname(t *testing.T) {
+	f := newSendFixture(t)
+	for _, origin := range []string{
+		"https://%CF%83.example", "https://%CF%82.example", "https://σ.example",
+		"https://-checkout.example", "https://checkout..example", "https://[checkout.example]",
+		"https://checkout.example:", "https://checkout.example:65536", "https://[fe80::1%25lo0]",
+	} {
+		t.Run(origin, func(t *testing.T) {
+			_, err := marketplace.NewAgentSender(f.commerce, f.store, f.store, origin, nil)
+			assertSendCode(t, err, contracts.InvalidArgument)
+		})
+	}
+	for _, origin := range []string{"https://xn--4xa.example", "http://localhost:8080", "http://127.0.0.1:8080", "http://[::1]:8080"} {
+		t.Run(origin, func(t *testing.T) {
+			f := newSendFixture(t)
+			f.reserve()
+			f.lead.Checkout.URL = origin + "/checkout/token"
+			sender, err := marketplace.NewAgentSender(f.commerce, f.store, f.store, origin, func() time.Time { return f.now })
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := sender.SendAgentMessage(t.Context(), f.request)
+			if err != nil || result.Status != contracts.AgentDeliveryDelivered || len(f.history(t)) != 1 {
+				t.Fatalf("send = %#v, %v", result, err)
 			}
 		})
 	}
@@ -266,6 +296,102 @@ func TestDeliveryReplay(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestDeliveryReplayReconcilesConcurrentPublication(t *testing.T) {
+	for _, variant := range []string{"prepare rejection", "stale stage", "conflicting request", "canceled caller"} {
+		t.Run(variant, func(t *testing.T) {
+			f := newSendFixture(t)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			firstCtx, cancelFirst := context.WithCancel(ctx)
+			defer cancelFirst()
+			entered, release := make(chan struct{}), make(chan struct{})
+			blocked := func() {
+				close(entered)
+				select {
+				case <-release:
+				case <-ctx.Done():
+				}
+			}
+			var leadReads atomic.Int32
+			firstLead := f.lead
+			outbox := contracts.AgentOutbox(f.store)
+			if variant == "stale stage" {
+				differentOffer := *firstLead.Offer
+				differentOffer.PriceIDR++
+				firstLead.Offer = &differentOffer
+				var saves atomic.Int32
+				outbox = blockingOutbox{AgentOutbox: f.store, beforeSave: func() {
+					if saves.Add(1) == 1 {
+						blocked()
+					}
+				}}
+			} else {
+				firstLead.State = domain.LeadLost
+			}
+			f.commerce.GetLeadFunc = func(context.Context, string) (domain.LeadRecord, error) {
+				if leadReads.Add(1) == 1 {
+					if variant != "stale stage" {
+						blocked()
+					}
+					return firstLead, nil
+				}
+				return f.lead, nil
+			}
+			sender, err := marketplace.NewAgentSender(f.commerce, outbox, f.store, "https://checkout.example", func() time.Time { return f.now })
+			if err != nil {
+				t.Fatal(err)
+			}
+			firstRequest := f.request
+			if variant == "conflicting request" {
+				firstRequest.Text = marketplace.AgentAcknowledgmentText
+			}
+			var first contracts.AgentDeliveryResult
+			var firstErr error
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				first, firstErr = sender.SendAgentMessage(firstCtx, firstRequest)
+			}()
+			select {
+			case <-entered:
+			case <-ctx.Done():
+				t.Fatal("first send did not reach the race point")
+			}
+			published, err := sender.SendAgentMessage(ctx, f.request)
+			if variant == "canceled caller" {
+				cancelFirst()
+			}
+			close(release)
+			<-done
+			if err != nil || published.Status != contracts.AgentDeliveryDelivered || len(f.history(t)) != 1 {
+				t.Fatalf("concurrent send = %#v, %v", published, err)
+			}
+			switch variant {
+			case "conflicting request":
+				assertSendCode(t, firstErr, contracts.IdempotencyConflict)
+			case "canceled caller":
+				if !errors.Is(firstErr, context.Canceled) {
+					t.Fatalf("canceled caller got %#v, %v", first, firstErr)
+				}
+			default:
+				if firstErr != nil || first != published {
+					t.Fatalf("identical send = %#v, %v, want %#v", first, firstErr, published)
+				}
+			}
+		})
+	}
+}
+
+type blockingOutbox struct {
+	contracts.AgentOutbox
+	beforeSave func()
+}
+
+func (s blockingOutbox) SaveAgentDraft(ctx context.Context, draft contracts.AgentDeliveryDraft) error {
+	s.beforeSave()
+	return s.AgentOutbox.SaveAgentDraft(ctx, draft)
 }
 
 func TestDeliveryLimits(t *testing.T) {

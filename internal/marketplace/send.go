@@ -3,6 +3,7 @@ package marketplace
 import (
 	"context"
 	"errors"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -64,29 +65,16 @@ func (s *AgentSender) SendAgentMessage(ctx context.Context, req contracts.AgentM
 		!validAgentID(req.Thread.Platform) || !validAgentID(req.Thread.ThreadID) {
 		return agentRejection(contracts.InvalidArgument, "Action, lead, seller, and thread scope are required")
 	}
-	stored, found, err := s.outbox.FindAgentDraft(ctx, req.ActionID)
-	if err != nil {
-		return agentFailure(err, "Unable to read the delivery outbox")
-	}
-	if found {
-		if stored.Request != req {
-			return agentRejection(contracts.IdempotencyConflict, "Action ID is already bound to another request")
-		}
-		receipt, delivered, err := s.publish.FindAgentReceipt(ctx, req.ActionID)
-		if err != nil {
-			return agentFailure(err, "Unable to reconcile the delivery receipt")
-		}
-		if delivered {
-			return deliveredAgentMessage(receipt), nil
-		}
+	if result, err := s.reconcileAgentMessage(ctx, req); err != nil || result.Status == contracts.AgentDeliveryDelivered {
+		return result, err
 	}
 
 	publication, err := s.prepare(ctx, req)
 	if err != nil {
-		return agentFailure(err, "Unable to verify current delivery facts")
+		return s.reconcileAgentFailure(ctx, req, err, "Unable to verify current delivery facts")
 	}
 	if err := s.outbox.SaveAgentDraft(ctx, publication.Draft); err != nil {
-		return agentFailure(err, "Unable to save the pending message")
+		return s.reconcileAgentFailure(ctx, req, err, "Unable to save the pending message")
 	}
 	receipt, err := s.publish.PublishAgentMessage(ctx, publication)
 	if err != nil {
@@ -97,6 +85,42 @@ func (s *AgentSender) SendAgentMessage(ctx context.Context, req contracts.AgentM
 		return result, err
 	}
 	return deliveredAgentMessage(receipt), nil
+}
+
+func (s *AgentSender) reconcileAgentMessage(ctx context.Context, req contracts.AgentMessageRequest) (contracts.AgentDeliveryResult, error) {
+	stored, found, err := s.outbox.FindAgentDraft(ctx, req.ActionID)
+	if err != nil {
+		return agentFailure(err, "Unable to read the delivery outbox")
+	}
+	if !found {
+		return contracts.AgentDeliveryResult{}, nil
+	}
+	if stored.Request != req {
+		return agentRejection(contracts.IdempotencyConflict, "Action ID is already bound to another request")
+	}
+	receipt, delivered, err := s.publish.FindAgentReceipt(ctx, req.ActionID)
+	if err != nil {
+		return agentFailure(err, "Unable to reconcile the delivery receipt")
+	}
+	if delivered {
+		return deliveredAgentMessage(receipt), nil
+	}
+	return contracts.AgentDeliveryResult{}, nil
+}
+
+func (s *AgentSender) reconcileAgentFailure(ctx context.Context, req contracts.AgentMessageRequest, cause error, message string) (contracts.AgentDeliveryResult, error) {
+	if err := ctx.Err(); err != nil {
+		return contracts.AgentDeliveryResult{}, err
+	}
+	if errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) {
+		return agentFailure(cause, message)
+	}
+	// Another caller may have published this action while this caller checked
+	// current facts or tried to stage an obsolete draft.
+	if result, err := s.reconcileAgentMessage(ctx, req); err != nil || result.Status == contracts.AgentDeliveryDelivered {
+		return result, err
+	}
+	return agentFailure(cause, message)
 }
 
 func (s *AgentSender) prepare(ctx context.Context, req contracts.AgentMessageRequest) (contracts.AgentPublication, error) {
@@ -195,8 +219,39 @@ func (s *AgentSender) validCheckoutLink(raw string) bool {
 }
 
 func checkoutHTTPURL(link *url.URL) bool {
-	return (link.Scheme == "https" || link.Scheme == "http") && link.Hostname() != "" &&
-		link.Opaque == "" && link.User == nil && link.RawPath == "" && link.RawQuery == "" && !link.ForceQuery && link.Fragment == ""
+	return (link.Scheme == "https" || link.Scheme == "http") &&
+		link.Opaque == "" && link.User == nil && link.RawPath == "" && link.RawQuery == "" && !link.ForceQuery && link.Fragment == "" &&
+		validCheckoutHost(link)
+}
+
+// Restrict host comparison to ASCII so Unicode case folding cannot equate
+// names that the browser sends to different origins.
+func validCheckoutHost(link *url.URL) bool {
+	if strings.HasSuffix(link.Host, ":") {
+		return false
+	}
+	if port := link.Port(); port != "" {
+		if _, err := strconv.ParseUint(port, 10, 16); err != nil {
+			return false
+		}
+	}
+	host := link.Hostname()
+	if strings.HasPrefix(link.Host, "[") {
+		ip, err := netip.ParseAddr(host)
+		return err == nil && ip.Is6() && ip.Zone() == ""
+	}
+	host = strings.TrimSuffix(host, ".")
+	if len(host) > 253 {
+		return false
+	}
+	for label := range strings.SplitSeq(host, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' || strings.IndexFunc(label, func(r rune) bool {
+			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-')
+		}) != -1 {
+			return false
+		}
+	}
+	return true
 }
 
 func validAgentID(id string) bool {
