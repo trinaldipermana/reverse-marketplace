@@ -18,3 +18,10 @@ func effectiveMinimum(listPriceIDR int64, rules domain.Rules) (int64, error) {
 	}
 	return discounted, nil
 }
+
+// MinimumOfferPrice is the same authoritative integer calculation used by
+// offers/checkout, exposed for discovery budget eligibility without exposing
+// seller limits to the model or duplicating rounding logic.
+func MinimumOfferPrice(listPriceIDR int64, rules domain.Rules) (int64, error) {
+	return effectiveMinimum(listPriceIDR, rules)
+}

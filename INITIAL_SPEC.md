@@ -46,33 +46,25 @@ MVP includes discovery, intent extraction, matching, a tool-using conversation l
 ## Architecture and execution flow
 
 ```text
-Mock marketplace → Discovery → Intent filter → Inventory search
-                                               ↓
-                                      Rerank and distance gate
-                                               ↓
-                                          Create lead
-                                               ↓
-Buyer reply → Inbound event → Conversation runtime → Proposed tool action
-                                                       ↓
-                                             Go policy validation
-                                                       ↓
-                                      Persist state and outbound action
-                                                       ↓
-                                      Marketplace connector delivery
+Seller Discover posts button → P2 available inventory
+    → GenerateJSON query plan → P4 SearchPost → query/post provenance
+    → GenerateJSON buying intent and item matching
+    → Go eligibility checks → unique lead + stable runtime event
+    → P1 OnLeadDiscovered → conversation tool loop
 
-Seller dashboard → Policies, leads, action history
-Checkout page → Reservation and mock payment → Inventory decrement
+Buyer reply → P4 saved reply → P1 turn → guarded P2/P4 tool services
+Checkout page → mock pay → atomic stock/reservation/checkout/lead commit
 ```
 
-1. Start discovery against stored marketplace posts and deduplicate by platform and external post ID. Seller-triggered discovery is the proposed demo default; automatic polling remains an extension.
-2. Extract buying intent into validated structured JSON. Skip non-buying or low-confidence posts.
-3. Search each seller's inventory, check availability and hard constraints, then rerank eligible candidates.
-4. Check score threshold and seller service radius. Create at most one lead per seller and buyer request.
-5. Run an initial agent turn to propose an offer for the new lead.
-6. Receive each buyer reply once and execute a serialized turn for that lead.
-7. Validate each proposed action, record the result, and deliver approved messages through the connector.
-8. On checkout creation, reserve an agreed item at a validated price and return an owned checkout URL.
-9. On successful mock payment, commit inventory consumption and mark the lead paid. On expiry, release the reservation and return the lead to active.
+1. Receive a synchronous discovery request with sellerId in its body.
+2. Read available seller inventory and generate dynamic search queries.
+3. Search marketplace posts with bounded pagination and retain query-to-post associations.
+4. Deduplicate posts, extract buying intent and rank inventory candidates through structured output.
+5. Enforce ownership, attributes, legal budget, stock, location, and score thresholds in code.
+6. Create at most one lead per seller and buyer request, then notify P1 with a stable event ID.
+7. Return matches directly; P1 acceptance does not mean the buyer has received a message.
+8. Run an initial agent turn for each new lead and a serialized turn for each buyer reply.
+9. Validate tool actions; checkout reserves stock, mock pay consumes it, and expiry releases it.
 
 The initial offer is a lead-created turn; subsequent turns are triggered by buyer replies. Bounded internal model/tool steps may occur within one turn.
 
