@@ -109,7 +109,7 @@ const initialThreads = [
   },
 ];
 
-const filters = ['All', 'Needs reply', 'New matches', 'Running sales'];
+const filters = ['All', 'Needs reply', 'New matches'];
 
 function DashboardPage() {
   const [threads, setThreads] = useState(initialThreads);
@@ -131,11 +131,6 @@ function DashboardPage() {
       || (filter === 'Running sales' && ['DM started', 'Offer shared'].includes(thread.stage));
     return matchesQuery && matchesFilter;
   }), [threads, query, filter]);
-
-  const runningSales = threads.filter((thread) => ['DM started', 'Offer shared'].includes(thread.stage)).length;
-  const purchases = threads.filter((thread) => thread.stage === 'Purchased').length;
-  const totalReferral = threads.reduce((sum, thread) => sum + Number(thread.referral.replace('$', '')), 0);
-  const activeStageIndex = active.stage === 'New match' ? 0 : active.stage === 'DM started' ? 1 : active.stage === 'Offer shared' ? 2 : active.stage === 'Purchase pending' ? 3 : 4;
 
   function selectThread(thread) {
     setActiveId(thread.id);
@@ -205,8 +200,6 @@ function DashboardPage() {
     setDraft('');
   }
 
-  const onCounteroffer = () => setDraft(`Thanks for the offer. I can do $280 for pickup this week. Would that work for you?`);
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -217,41 +210,22 @@ function DashboardPage() {
           <Icon>⌄</Icon>
         </button>
         <nav className="side-nav" aria-label="Main navigation">
-          <span className="nav-label">Workspace</span>
-          <button className="nav-item" type="button"><Icon>◫</Icon>Home</button>
-          <button className="nav-item selected" type="button"><Icon>▤</Icon>Conversations<span className="nav-count">{threads.length}</span></button>
-          <button className="nav-item" type="button"><Icon>◷</Icon>Orders &amp; sales</button>
-          <button className="nav-item" type="button"><Icon>▧</Icon>Products &amp; catalog</button>
-          <span className="nav-label nav-spacer">Manage</span>
-          <button className="nav-item" type="button"><Icon>⌁</Icon>Business insights</button>
-          <button className="nav-item" type="button"><Icon>⚙</Icon>Settings</button>
+          <a className="nav-item" href="#find-buyer"><Icon>⌕</Icon>Find buyer</a>
+          <a className="nav-item selected" href="#conversation-area"><Icon>▤</Icon>Conversations<span className="nav-count">{threads.length}</span></a>
         </nav>
         <div className="sidebar-bottom">
-          <div className="help-box"><strong>Need a hand?</strong><span>Seller guide and support</span><button type="button">Open help <span>↗</span></button></div>
           <button className="profile-button" type="button"><Avatar initials="NS" /><span><strong>Northside Music</strong><small>Seller account</small></span><Icon>•••</Icon></button>
         </div>
       </aside>
 
       <main className="main-area">
         <header className="topbar">
-          <div className="breadcrumb"><strong className="top-brand">loopfind</strong><span className="top-divider" /><span>Seller Centre</span><Icon>›</Icon><strong>Conversations</strong></div>
+          <div className="breadcrumb"><strong className="top-brand">loopfind</strong><span className="top-divider" /><span>Seller workspace</span><Icon>›</Icon><strong>Find buyers &amp; conversations</strong></div>
           <div className="top-actions"><span className="connection"><i /> Sources connected</span><a className="buyer-demo-link" href="/buyer">Buyer demo <span>↗</span></a><button aria-label="Notifications" className="icon-button" type="button">♧<i className="notification-dot" /></button><Avatar initials="NS" small /></div>
         </header>
 
         <div className="page-content">
-          <section className="page-heading">
-            <div><div className="date-line">SELLER WORKSPACE <span>·</span> ELECTRONIC DRUMS</div><h1>Good morning, Northside</h1><p>Review matched buyer requests, start conversations, and keep sales moving.</p></div>
-            <div className="heading-actions"><button className="button button-outline" type="button"><span>＋</span> Add a listing</button><button className="button button-primary" type="button" onClick={runMatchSearch} disabled={matchState === 'loading'}><span>⌕</span>{matchState === 'loading' ? 'Searching…' : 'Search buyer matches'}</button></div>
-          </section>
-
-          <section className="metric-grid" aria-label="Seller activity summary">
-            <article className="metric-card"><div className="metric-top"><span>Open conversations</span><span className="metric-icon">▤</span></div><strong>{threads.filter((thread) => thread.stage !== 'Purchased').length}</strong><small><b>{threads.filter((thread) => thread.unread).length} need a reply</b><span> across your inbox</span></small></article>
-            <article className="metric-card"><div className="metric-top"><span>Running sales</span><span className="metric-icon">◷</span></div><strong>{runningSales}</strong><small><b>{threads.filter((thread) => thread.stage === 'Offer shared').length} offers shared</b><span> · {threads.filter((thread) => thread.stage === 'DM started').length} chats started</span></small></article>
-            <article className="metric-card"><div className="metric-top"><span>Completed sales</span><span className="metric-icon">✓</span></div><strong>{purchases}</strong><small><b>Tracked purchases</b><span> from matched requests</span></small></article>
-            <article className="metric-card"><div className="metric-top"><span>Estimated referrals</span><span className="metric-icon">↗</span></div><strong>${totalReferral.toFixed(2)}</strong><small><b>Pending + confirmed</b><span> · demo data</span></small></article>
-          </section>
-
-          <section className="match-search-card" aria-live="polite">
+          <section className="match-search-card" id="find-buyer" aria-live="polite">
             <div className="match-search-head">
               <div className="match-search-icon">⌕</div>
               <div className="match-search-copy"><span className="eyebrow">BUYER MATCHING</span><h2>Find a buyer for your products</h2><p>Search public buyer requests and match them against your active catalog.</p></div>
@@ -270,26 +244,7 @@ function DashboardPage() {
             </article>}
           </section>
 
-          <section className="pipeline-card">
-            <div className="section-heading"><div><h2>Sales pipeline</h2><p>See where buyer requests are in the conversation-to-sale journey.</p></div><button className="text-button" type="button">View pipeline <span>↗</span></button></div>
-            <div className="pipeline-track">
-              {[
-                ['Matched', threads.filter((thread) => thread.stage === 'New match').length],
-                ['DM started', threads.filter((thread) => thread.stage === 'DM started').length],
-                ['Offer shared', threads.filter((thread) => thread.stage === 'Offer shared').length],
-                ['Purchase pending', 1],
-                ['Completed', purchases],
-              ].map(([label, count], index) => (
-                <div className={`pipeline-stage ${count ? 'has-count' : ''}`} key={label}>
-                  <div className="stage-label"><span>{label}</span><strong>{count}</strong></div>
-                  <div className="stage-bar"><i style={{ width: `${Math.max(8, Math.min(100, Number(count) * 25))}%` }} /></div>
-                  {index < 4 && <span className="stage-chevron">›</span>}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="workspace-grid" id="conversation-area" aria-label="Conversation inbox and sale details">
+          <section className="workspace-grid" id="conversation-area" aria-label="Conversations">
             <aside className="inbox-panel">
               <div className="inbox-heading"><div><h2>Conversations</h2><span>{threads.length} total <i>·</i> {threads.filter((thread) => thread.unread).length} unread</span></div><button className="dots-button" aria-label="More inbox options" type="button">•••</button></div>
               <label className="search-box"><Icon>⌕</Icon><input aria-label="Search conversations" placeholder="Search buyers or products" value={query} onChange={(event) => setQuery(event.target.value)} /><kbd>⌘ K</kbd></label>
@@ -330,23 +285,11 @@ function DashboardPage() {
               </div>
               <form className={`message-composer ${active.stage === 'New match' ? 'composer-disabled' : ''}`} onSubmit={sendMessage}>
                 <textarea aria-label="Write a message" placeholder={active.stage === 'New match' ? 'Start a DM to contact this buyer' : 'Write a message…'} value={draft} onChange={(event) => setDraft(event.target.value)} disabled={active.stage === 'New match'} />
-                <div className="composer-bottom"><div className="composer-hints"><span>↵ Enter to send</span><span>·</span><span>Messages stay linked to this sale</span></div><div><button className="icon-button" type="button" aria-label="Attach file">＋</button><button className="button button-primary send-button" type="submit" disabled={active.stage === 'New match' || !draft.trim()}>Send <span>↑</span></button></div></div>
+                <div className="composer-bottom"><div className="composer-hints"><span>↵ Enter to send</span><span>·</span><span>Messages stay linked to this match</span></div><div><button className="icon-button" type="button" aria-label="Attach file">＋</button><button className="button button-primary send-button" type="submit" disabled={active.stage === 'New match' || !draft.trim()}>Send <span>↑</span></button></div></div>
               </form>
             </section>
 
-            <aside className="sale-panel">
-              <div className="sale-heading"><div><h2>Sale details</h2><span>Linked listing and progress</span></div><button className="dots-button" aria-label="More sale options" type="button">•••</button></div>
-              <div className="sale-body">
-                <div className="listing-preview"><div className="product-art"><span>♬</span><i>Mesh kit</i></div><div className="listing-copy"><strong>{active.product}</strong><span>{active.listing.split('·').slice(1).join('·').trim()}</span>{active.productUrl && <a className="shopee-link compact" href={active.productUrl} target="_blank" rel="noreferrer"><span>S</span> View on Shopee ↗</a>}</div></div>
-                <div className="sale-facts"><div><span>Asking price</span><strong>{active.price}</strong></div><div><span>Buyer offer</span><strong>{active.offer}</strong></div><div><span>Referral estimate</span><strong className="green-text">{active.referral}</strong></div></div>
-                <div className="sale-progress"><div className="progress-heading"><strong>Sale progress</strong><span>{active.stage}</span></div><div className="progress-track"><i style={{ width: `${Math.max(12, (activeStageIndex + 1) * 20)}%` }} /></div><div className="progress-labels"><span>Matched</span><span>Purchased</span></div></div>
-                <div className="activity-block"><div className="activity-heading"><strong>Activity</strong><button type="button">See all</button></div><div className="activity-timeline">{active.events.map(([label, time, status]) => <div className={`activity-event ${status}`} key={label}><i /><div><strong>{label}</strong><span>{time}</span></div></div>)}</div></div>
-                <div className="next-action"><span className="next-label">SUGGESTED NEXT STEP</span><strong>{active.stage === 'New match' ? 'Start a conversation' : active.stage === 'DM started' ? 'Share an offer' : active.stage === 'Purchased' ? 'Sale completed' : 'Respond to buyer offer'}</strong><p>{active.stage === 'New match' ? 'The buyer’s public request matches this listing. Start with a personal note about why it fits.' : active.stage === 'DM started' ? 'Send the listing and a tracked purchase link when the buyer is ready.' : active.stage === 'Purchased' ? 'Tracked purchase confirmed. Your referral is being processed.' : 'Sam offered $270 for pickup. Reply with a counteroffer or confirm the price.'}</p>{active.stage === 'New match' ? <button className="button button-primary full-button" type="button" onClick={startConversation}>Start a DM <span>→</span></button> : active.stage === 'Offer shared' ? <button className="button button-outline full-button" type="button" onClick={onCounteroffer}>Create counteroffer</button> : null}</div>
-                <p className="demo-note">Illustrative demo data. Referral earnings are estimates until a tracked purchase is confirmed.</p>
-              </div>
-            </aside>
           </section>
-          <footer className="page-footer"><span>Loopfind Seller workspace</span><span>Example data · Activity is linked to matched buyer intent</span></footer>
         </div>
       </main>
     </div>
