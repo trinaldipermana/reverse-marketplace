@@ -18,7 +18,7 @@ import (
 	"github.com/trinaldirizki/reverse-marketplace/internal/domain"
 )
 
-// Threads is a local, in-memory thread history and buyer-reply feed.
+// Threads is a local, in-memory conversation store and connector.
 type Threads struct {
 	lookup contracts.PostLookup
 	now    func() time.Time
@@ -29,6 +29,8 @@ type Threads struct {
 	replies  []storedBuyerReply
 	replyIDs map[string]int
 	cursorID string
+	drafts   map[string]contracts.AgentDeliveryDraft
+	receipts map[string]contracts.AgentDeliveryReceipt
 }
 
 type thread struct {
@@ -59,6 +61,8 @@ func NewThreads(lookup contracts.PostLookup, now func() time.Time) *Threads {
 		threads:  make(map[domain.ThreadRef]*thread),
 		replyIDs: make(map[string]int),
 		cursorID: rand.Text(),
+		drafts:   make(map[string]contracts.AgentDeliveryDraft),
+		receipts: make(map[string]contracts.AgentDeliveryReceipt),
 	}
 }
 
