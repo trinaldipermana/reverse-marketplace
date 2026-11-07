@@ -15,6 +15,9 @@ const (
 	KindGuardrail             Kind       = "guardrail"
 	KindState                 Kind       = "state"
 	KindError                 Kind       = "error"
+	KindContextLoaded         Kind       = "context_loaded"
+	KindTurnStarted           Kind       = "turn_started"
+	KindTurnCompleted         Kind       = "turn_completed"
 	StatusOK                  Status     = "ok"
 	StatusBlocked             Status     = "blocked"
 	StatusFailed              Status     = "failed"
@@ -38,6 +41,7 @@ const (
 	CodeCanceled              ResultCode = "CANCELED"
 	CodeTimedOut              ResultCode = "TIMED_OUT"
 	CodeLimitReached          ResultCode = "LIMIT_REACHED"
+	CodePending               ResultCode = "DELIVERY_PENDING"
 )
 
 var ErrInvalidEntry = errors.New("invalid action-log entry")
@@ -51,6 +55,7 @@ var resultSummary = map[ResultCode]string{
 	CodePriceBelowMinimum: "offer below seller minimum", CodeOutOfStock: "item unavailable", CodeOfferSuperseded: "offer superseded", CodeCheckoutExpired: "checkout expired",
 	CodeVersionConflict: "record changed", CodeIdempotencyConflict: "action identity conflict", CodeDependencyUnavailable: "dependency unavailable",
 	CodeCanceled: "runtime work canceled", CodeTimedOut: "runtime deadline reached", CodeLimitReached: "runtime limit reached",
+	CodePending: "delivery pending",
 }
 
 // Entry has no free-form summary, model content or raw error field. IDs must be
@@ -59,13 +64,14 @@ var resultSummary = map[ResultCode]string{
 // alphabet or length restriction absent from the worker and commerce contracts.
 // The recorder validates this value before forwarding it to a sink.
 type Entry struct {
-	EventID  string     `json:"event_id"`
-	LeadID   string     `json:"lead_id,omitempty"`
-	SellerID string     `json:"seller_id,omitempty"`
-	Kind     Kind       `json:"kind"`
-	Status   Status     `json:"status"`
-	Tool     ToolName   `json:"tool,omitempty"`
-	Code     ResultCode `json:"code"`
+	EventID    string     `json:"event_id"`
+	LeadID     string     `json:"lead_id,omitempty"`
+	SellerID   string     `json:"seller_id,omitempty"`
+	Kind       Kind       `json:"kind"`
+	Status     Status     `json:"status"`
+	Tool       ToolName   `json:"tool,omitempty"`
+	Code       ResultCode `json:"code"`
+	ToolCallID string     `json:"tool_call_id,omitempty"`
 }
 
 func (e Entry) Validate() error {
@@ -86,8 +92,12 @@ func (e Entry) Validate() error {
 		}
 	}
 	switch e.Kind {
-	case KindDiscovery, KindState:
-		if e.Status != StatusOK || e.Code != CodeOK || e.Tool != "" {
+	case KindDiscovery, KindState, KindContextLoaded, KindTurnStarted:
+		if e.Status != StatusOK || e.Code != CodeOK || e.Tool != "" || e.ToolCallID != "" {
+			return ErrInvalidEntry
+		}
+	case KindTurnCompleted:
+		if (e.Status != StatusOK && e.Status != StatusFailed) || e.Tool != "" || e.ToolCallID != "" {
 			return ErrInvalidEntry
 		}
 	case KindTool:
@@ -105,7 +115,10 @@ func (e Entry) Validate() error {
 	default:
 		return ErrInvalidEntry
 	}
-	if (e.Status == StatusOK) != (e.Code == CodeOK) {
+	if e.Code == CodePending && (e.Kind != KindTool || e.Tool != ToolSendMessage) {
+		return ErrInvalidEntry
+	}
+	if (e.Status == StatusOK) != (e.Code == CodeOK || e.Code == CodePending) {
 		return ErrInvalidEntry
 	}
 	return nil
@@ -120,11 +133,20 @@ func (e Entry) Summary() string {
 	if e.Status != StatusOK {
 		return resultSummary[e.Code]
 	}
+	if e.Code == CodePending {
+		return resultSummary[e.Code]
+	}
 	switch e.Kind {
 	case KindDiscovery:
 		return "lead received for processing"
 	case KindState:
 		return "lead state changed"
+	case KindContextLoaded:
+		return "lead context loaded"
+	case KindTurnStarted:
+		return "agent turn started"
+	case KindTurnCompleted:
+		return "agent turn completed"
 	case KindTool:
 		return toolSummary[e.Tool]
 	}
