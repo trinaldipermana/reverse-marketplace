@@ -59,5 +59,6 @@ func New(db *sql.DB, commerce Commerce, marketplace contracts.MarketplaceDiscove
 	if opts.Timeout <= 0 || opts.Timeout > 5*time.Minute || opts.MaxQueries < 1 || opts.MaxQueries > 20 || opts.PageSize < 1 || opts.PageSize > 100 || opts.MaxPagesPerQuery < 1 || opts.MaxPagesPerQuery > 10 || opts.MaxPosts < 1 || opts.MaxPosts > 200 || opts.MaxItems < 1 || opts.MaxItems > 100 || math.IsNaN(opts.IntentThreshold) || opts.IntentThreshold < 0 || opts.IntentThreshold > 1 || math.IsNaN(opts.MatchThreshold) || opts.MatchThreshold < 0 || opts.MatchThreshold > 1 || math.IsNaN(opts.MaxDistanceKM) || math.IsInf(opts.MaxDistanceKM, 0) || opts.MaxDistanceKM < 0 {
 		return nil, errors.New("invalid discovery limits")
 	}
+	opts.PartnerHosts = append([]string(nil), opts.PartnerHosts...)
 	return &Service{db: db, commerce: commerce, marketplace: marketplace, planner: planner, matcher: matcher, notifier: notifier, opts: opts}, nil
 }

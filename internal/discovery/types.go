@@ -44,6 +44,9 @@ type Commerce interface {
 }
 
 type Options struct {
+	// FixedPrice is opt-in; URL hosts are configured by the operator, not the model.
+	FixedPrice       bool
+	PartnerHosts     []string
 	Now              func() time.Time
 	NewID            func() string
 	Timeout          time.Duration

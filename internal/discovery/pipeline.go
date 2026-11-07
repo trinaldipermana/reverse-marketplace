@@ -259,6 +259,14 @@ func (s *Service) Discover(parent context.Context, seller string) (result Result
 				addWarning(&result, "LEAD_ITEM_FAILED", "An existing lead item could not be loaded")
 				continue
 			}
+			if s.opts.FixedPrice {
+				rechecked, rejection, checkErr := s.validateCandidate(ctx, seller, post, matched, ItemMatch{ItemID: currentItem.ID, Score: 1, Reason: "Existing lead item"}, allowed)
+				if checkErr != nil || rejection != "" {
+					addWarning(&result, "EXISTING_LEAD_INELIGIBLE", "Existing lead does not meet fixed-price listing requirements")
+					continue
+				}
+				chosen.PartnerURL = rechecked.PartnerURL
+			}
 			chosen.Item = currentItem
 			chosen.Match = ItemMatch{ItemID: currentItem.ID, Score: 0, Reason: "Existing lead kept its previously selected item"}
 			addWarning(&result, "EXISTING_LEAD", "An existing lead kept its previously selected item")

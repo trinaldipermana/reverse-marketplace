@@ -23,7 +23,7 @@ func matchView(seller string, post domain.Post, chosen eligibleCandidate, lead d
 	}
 	return MatchView{MatchID: lead.ID, LeadID: lead.ID, ThreadID: post.ThreadID, MatchScore: int(math.Round(chosen.Match.Score * 100)), MatchReasons: []string{chosen.Match.Reason}, SellerID: seller, NotificationStatus: status, LeadState: lead.State,
 		Buyer:   BuyerView{ID: post.BuyerID, Name: name, Initials: initials, Source: post.Platform, Post: post.Text, PostedAt: post.CreatedAt.UTC().Format(time.RFC3339)},
-		Product: ProductView{ID: chosen.Item.ID, Name: chosen.Item.Name, Condition: chosen.Item.Attributes["condition"], Category: chosen.Item.Attributes["category"], Price: formatIDR(chosen.Item.ListPriceIDR), PriceIDR: chosen.Item.ListPriceIDR, Availability: availability, Marketplace: "Seller inventory", URL: ""},
+		Product: ProductView{ID: chosen.Item.ID, Name: chosen.Item.Name, Condition: chosen.Item.Attributes["condition"], Category: chosen.Item.Attributes["category"], Price: formatIDR(chosen.Item.ListPriceIDR), PriceIDR: chosen.Item.ListPriceIDR, Availability: availability, Marketplace: "Seller inventory", URL: chosen.PartnerURL},
 	}
 }
 func formatIDR(amount int64) string {
