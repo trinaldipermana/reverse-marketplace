@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/trinaldirizki/reverse-marketplace/internal/agent"
+	"github.com/trinaldirizki/reverse-marketplace/internal/llm"
 )
 
 func main() {
@@ -19,11 +19,11 @@ func main() {
 }
 
 func run() error {
-	cfg, err := agent.ConfigFromEnv()
+	cfg, err := llm.ConfigFromEnv()
 	if err != nil {
 		return err
 	}
-	client, err := agent.NewOpenAIClient(cfg)
+	client, err := llm.NewOpenAIClient(cfg)
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func run() error {
 	var result struct {
 		OK bool `json:"ok"`
 	}
-	err = client.GenerateJSON(ctx, agent.JSONRequest{
+	err = client.GenerateJSON(ctx, llm.JSONRequest{
 		Instructions: "This is a connection test. Return ok set to true.",
 		Input:        "Check the connection using synthetic data only.",
 		SchemaName:   "connection_check",

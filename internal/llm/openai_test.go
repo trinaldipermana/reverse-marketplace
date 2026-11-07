@@ -1,4 +1,4 @@
-package agent
+package llm
 
 import (
 	"context"
@@ -129,6 +129,57 @@ func TestFailures(t *testing.T) {
 			}
 			if strings.Contains(err.Error(), "test-key") || strings.Contains(err.Error(), "private content") {
 				t.Fatal("error leaked sensitive content")
+			}
+		})
+	}
+}
+
+func TestGenerateJSONRejectsInvalidInputBeforeRequest(t *testing.T) {
+	valid := JSONRequest{SchemaName: "intent", Schema: json.RawMessage(`{"type":"object"}`)}
+	var typedNil *struct{}
+	for _, tc := range []struct {
+		name    string
+		request JSONRequest
+		out     any
+	}{
+		{"nil output", valid, nil},
+		{"non-pointer output", valid, struct{}{}},
+		{"typed nil output", valid, typedNil},
+		{"missing schema name", JSONRequest{Schema: valid.Schema}, &struct{}{}},
+		{"invalid schema JSON", JSONRequest{SchemaName: "intent", Schema: json.RawMessage(`{`)}, &struct{}{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := testClient(t, func(*http.Request) string {
+				t.Fatal("invalid local input reached provider")
+				return ""
+			})
+			if err := c.GenerateJSON(context.Background(), tc.request, tc.out); err == nil {
+				t.Fatal("invalid input accepted")
+			}
+		})
+	}
+}
+
+func TestGenerateJSONReturnsGenerationFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       error
+	}{
+		{"refusal", `{"status":"completed","output":[{"type":"message","content":[{"type":"refusal","refusal":"private content"}]}]}`, ErrRefusal},
+		{"incomplete", `{"status":"incomplete","output":[]}`, ErrIncomplete},
+		{"invalid JSON answer", `{"status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"not JSON"}]}]}`, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := testClient(t, func(*http.Request) string { return tc.body })
+			var out struct {
+				IsRequest bool `json:"is_request"`
+			}
+			err := c.GenerateJSON(context.Background(), JSONRequest{SchemaName: "intent", Schema: json.RawMessage(`{"type":"object"}`)}, &out)
+			if err == nil || (tc.want != nil && !errors.Is(err, tc.want)) {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if strings.Contains(err.Error(), "private content") {
+				t.Fatal("error exposed model content")
 			}
 		})
 	}
