@@ -17,7 +17,43 @@ export DEMO_RUN_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 Keep the timestamp and fixture the same when retrying a post. Reply retries reuse the fixture's external reply ID and must target the same seller message. The simulator prints the server response so the presenter can inspect the saved post, reply event, or thread.
 
-## Purchase
+## Fixed-price checkout rehearsal
+
+Use this scenario with the fixed-price internal checkout configuration tracked
+in [#56](https://github.com/trinaldirizki/reverse-marketplace/issues/56). The
+seeded ThinkPad T480 lists for Rp 5.8 million. The judge view at `/hackathon`
+ends when the internal checkout link is visible in a saved seller message.
+
+1. Reset and set `DEMO_RUN_AT` as above. Run
+   `./scripts/demo.sh post fixed_price_checkout` to publish the English laptop
+   request, or enter the same request in the judge view.
+2. Trigger discovery once. Verify one lead and a saved seller offer at
+   Rp 5.8 million. With the CLI, read the seller message ID using
+   `./scripts/demo.sh thread fixed_price_checkout`.
+3. Send the discount request. The buyer should see
+   “Sorry, I can't lower the listed price.” The lead should stay active at
+   Rp 5.8 million with no reservation or checkout link.
+
+   ```sh
+   ./scripts/demo.sh reply fixed_price_checkout discount "$OFFER_MESSAGE_ID"
+   ./scripts/demo.sh thread fixed_price_checkout
+   ```
+
+4. Explicitly accept Rp 5.8 million in reply to the saved refusal. Check that
+   the lead is reserved and one seller message contains the internal checkout
+   link at Rp 5.8 million. Retry the acceptance with the same reply ID and
+   target and verify that the thread still contains one checkout link.
+
+   ```sh
+   ./scripts/demo.sh reply fixed_price_checkout accept "$REFUSAL_MESSAGE_ID"
+   ./scripts/demo.sh thread fixed_price_checkout
+   ```
+
+5. Reset and repeat. Capture the fallback recording after both runs produce the
+   expected browser evidence. Verify payment replay separately through the
+   checkout API.
+
+## Negotiation and purchase regression
 
 1. Run `./scripts/demo.sh post purchase` to publish a request for a used laptop for coding with at least 16 GB of RAM. The buyer needs it in Jakarta this week and has a budget under Rp 6 million.
 2. Trigger discovery from the seller dashboard when its API binding is available. To exercise the backend directly, run:

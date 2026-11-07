@@ -7,6 +7,14 @@
     "text": "I'm looking for a used laptop for coding with at least 16 GB of RAM. My budget is under Rp 6 million, and I need it in Jakarta this week.",
     "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
   },
+  "fixed_price_checkout": {
+    "platform": "mock",
+    "external_post_id": "post-demo-fixed-price-checkout",
+    "buyer_id": "buyer-demo-fixed-price-checkout",
+    "thread_id": "thread-demo-fixed-price-checkout",
+    "text": "I am looking for a used laptop for coding with at least 16 GB RAM, under Rp 6 million, in Jakarta this week.",
+    "location": { "city": "Jakarta", "latitude": -6.2, "longitude": 106.8 }
+  },
   "exception": {
     "platform": "mock",
     "external_post_id": "post-demo-exception",

@@ -1,0 +1,13 @@
+{
+  "post_seed": "fixed_price_checkout",
+  "replies": {
+    "discount": {
+      "external_reply_id": "reply-demo-fixed-price-discount",
+      "text": "Could you lower the price to Rp 5 million?"
+    },
+    "accept": {
+      "external_reply_id": "reply-demo-fixed-price-accept",
+      "text": "I accept the listed price of Rp 5.8 million. Please send me the checkout link."
+    }
+  }
+}
