@@ -62,11 +62,16 @@ func run() error {
 	}
 	now := time.Now().UTC()
 	posts, err := mock.NewPostStore(
+		domain.Post{PostRef: domain.PostRef{Platform: "mock", ExternalPostID: "buyer_demo_request"}, BuyerID: "buyer_alex", ThreadID: "thread_buyer_demo", Text: "Searching for a beginner-friendly electronic drum set. Open to used options nearby.", CreatedAt: now, Location: domain.Location{City: "Jakarta"}},
 		domain.Post{PostRef: domain.PostRef{Platform: "mock", ExternalPostID: "discovery_buying"}, BuyerID: "buyer_discovery", ThreadID: "thread_discovery_buying", Text: "Butuh laptop bekas untuk coding, RAM minimal 16GB, budget under 6 juta rupiah, di Jakarta minggu ini.", CreatedAt: now, Location: domain.Location{City: "Jakarta"}},
 		domain.Post{PostRef: domain.PostRef{Platform: "mock", ExternalPostID: "discovery_selling"}, BuyerID: "seller_discovery", ThreadID: "thread_discovery_selling", Text: "Dijual laptop bekas ThinkPad 16GB di Jakarta. Ini iklan penjualan, bukan mencari barang.", CreatedAt: now, Location: domain.Location{City: "Jakarta"}},
 	)
 	if err != nil {
 		return err
+	}
+	threads := mock.NewThreads(posts, nil)
+	if err = threads.OpenThread(ctx, domain.PostRef{Platform: "mock", ExternalPostID: "buyer_demo_request"}); err != nil {
+		return fmt.Errorf("open buyer demo thread: %w", err)
 	}
 	worker, err := agentruntime.NewWorker(100, func(ctx context.Context, event agentruntime.Event) error {
 		_, err := agentruntime.LoadLeadContext(ctx, core, event.LeadID)
@@ -95,7 +100,8 @@ func run() error {
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/api/matches/search", discover.Handler())
-	mux.Handle("/api/mock/posts", marketplace.NewPostHandler(posts))
+	mux.Handle("/api/mock/posts", marketplace.NewPostHandler(postThreadRegistrar{posts: posts, threads: threads}))
+	mux.Handle("/api/mock/threads/", marketplace.NewThreadHandler(threads, "mock"))
 	mux.Handle("/api/", core.Handler())
 	server := &http.Server{Addr: *addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 100 * time.Second, IdleTimeout: 30 * time.Second}
 	serveDone := make(chan error, 1)
@@ -112,4 +118,24 @@ func run() error {
 		defer done()
 		return server.Shutdown(shutdown)
 	}
+}
+
+type postThreadRegistrar struct {
+	posts interface {
+		CreatePost(context.Context, domain.Post, string) (domain.Post, error)
+	}
+	threads interface {
+		OpenThread(context.Context, domain.PostRef) error
+	}
+}
+
+func (r postThreadRegistrar) CreatePost(ctx context.Context, post domain.Post, replayKey string) (domain.Post, error) {
+	created, err := r.posts.CreatePost(ctx, post, replayKey)
+	if err != nil {
+		return domain.Post{}, err
+	}
+	if err := r.threads.OpenThread(ctx, created.PostRef); err != nil {
+		return domain.Post{}, err
+	}
+	return created, nil
 }

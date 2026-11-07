@@ -66,4 +66,12 @@ function mockSellerApi() {
 
 export default defineConfig({
   plugins: [react(), mockSellerApi()],
+  server: {
+    proxy: {
+      '/api/mock': {
+        target: 'http://127.0.0.1:8082',
+        changeOrigin: true,
+      },
+    },
+  },
 });

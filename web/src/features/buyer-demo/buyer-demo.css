@@ -13,6 +13,21 @@
 .buyer-kicker { margin-bottom: 13px; color: #e65a3b; font-size: 9px; font-weight: 700; letter-spacing: .14em; }
 .buyer-intro h1 { max-width: 360px; color: #1e332b; font-family: Manrope, sans-serif; font-size: clamp(31px, 4vw, 43px); line-height: 1.08; letter-spacing: -.055em; }
 .buyer-intro > p { margin-top: 15px; color: #77857d; font-size: 13px; line-height: 1.7; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.social-composer { margin-top: 22px; padding: 12px; border: 1px solid #e3e6e8; border-radius: 11px; background: #fff; box-shadow: 0 5px 18px rgb(34 57 45 / 3%); }
+.composer-user-avatar { width: 29px; height: 29px; display: grid; place-items: center; float: left; margin-right: 9px; border-radius: 50%; background: #e5edfb; color: #3764a0; font-size: 11px; font-weight: 700; }
+.composer-input-wrap textarea { width: calc(100% - 38px); min-height: 46px; padding: 6px 2px; resize: vertical; border: 0; outline: none; color: #34465a; font-size: 10px; line-height: 1.5; }
+.composer-input-wrap textarea::placeholder { color: #8c98a4; }
+.composer-input-wrap textarea:focus-visible { outline: 0; }
+.composer-submit-row { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; border-top: 1px solid #edf0f2; }
+.composer-submit-row > span { color: #a0aab3; font-size: 7px; }
+.composer-submit-row button { min-width: 57px; height: 27px; border: 0; border-radius: 6px; background: #1877f2; color: #fff; font-size: 9px; font-weight: 700; }
+.composer-submit-row button:disabled { cursor: default; opacity: .45; }
+.post-api-status { margin-top: 8px; color: #8f9aa3; font-size: 8px; line-height: 1.45; }
+.post-api-status.sent { color: #3b8d5c; }
+.post-api-status.failed { color: #ba533d; }
+.post-api-status.local { color: #a17a32; }
+.social-post-list .social-post-card { margin-top: 12px; }
 .social-post-card { margin-top: 24px; overflow: hidden; border: 1px solid #e3e6e8; border-radius: 11px; background: #fff; box-shadow: 0 8px 24px rgb(34 57 45 / 4%); }
 .social-post-top { min-height: 58px; display: flex; align-items: center; gap: 9px; padding: 11px 13px 7px; }
 .social-group-avatar { width: 34px; height: 34px; display: grid; flex: 0 0 auto; place-items: center; border: 2px solid #dce8f7; border-radius: 50%; background: linear-gradient(140deg, #e9f0fd, #d3e3fc); color: #3168b6; font-size: 18px; }
@@ -22,6 +37,9 @@
 .social-post-top > div > span b { font-size: 7px; }
 .social-post-top button { margin-left: auto; align-self: flex-start; border: 0; background: transparent; color: #8a949d; letter-spacing: 2px; }
 .social-post-text { padding: 8px 14px 12px; color: #263746; font-size: 10px; line-height: 1.55; }
+.social-post-delivery { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 12px 9px; color: #ae644b; font-size: 8px; }
+.social-post-delivery.pending { color: #8796a2; }
+.social-post-delivery button { padding: 0; border: 0; background: transparent; color: #d94324; font-size: 8px; font-weight: 700; }
 .social-post-attachment { display: flex; align-items: center; gap: 11px; margin: 0 12px; padding: 9px; border: 1px solid #edf0f2; border-radius: 8px; background: #f8fafc; }
 .social-drum-art { width: 65px; height: 55px; display: grid; flex: 0 0 auto; place-items: center; position: relative; overflow: hidden; border-radius: 6px; background: radial-gradient(circle at 50% 50%, #4a5c70 0 14%, #243447 15% 25%, transparent 26%), radial-gradient(circle at 24% 61%, #63768c 0 17%, #2c3a4a 18% 27%, transparent 28%), linear-gradient(135deg, #e1e9f2, #bfcddd); color: white; text-shadow: 0 1px 4px #1c2c3d; }
 .social-drum-art span { font-size: 17px; }
@@ -70,8 +88,11 @@
 .buyer-product-cta b { margin-left: 4px; font-size: 12px; }
 .buyer-link-note { margin: 8px 0 0 3px; color: #a0aaa4; font-size: 8px; }
 .buyer-link-note span { color: #e65a3b; }
+.chat-api-status { margin: 12px 0 0 3px; color: #9ba69f; font-size: 8px; }
+.chat-api-status.unavailable { color: #aa6b43; }
 .buyer-sent-message { width: fit-content; max-width: 80%; margin: 14px 0 0 auto; padding: 8px 11px; border-radius: 12px 4px 12px 12px; background: #fff0eb; color: #5d514d; font-size: 10px; }
 .buyer-sent-message span { display: block; margin-bottom: 4px; color: #ab7668; font-size: 8px; }
+.buyer-message-retry { margin-top: 6px; padding: 0; border: 0; background: none; color: #d94324; font-size: 8px; font-weight: 700; }
 .buyer-reply { padding: 15px 19px 13px; border-top: 1px solid #edf0ee; }
 .buyer-reply label { display: block; margin-bottom: 7px; color: #68776f; font-size: 9px; font-weight: 600; }
 .buyer-reply-field { display: flex; gap: 8px; }
@@ -89,7 +110,8 @@
   .buyer-intro { max-width: none; }
   .buyer-intro h1 { max-width: 450px; font-size: 31px; }
   .buyer-intro > p { margin-top: 9px; font-size: 11px; }
-  .social-post-card { margin-top: 16px; }
+  .social-composer { margin-top: 15px; }
+  .social-post-list .social-post-card { margin-top: 11px; }
   .buyer-privacy { display: none; }
   .buyer-chat-card { border-radius: 13px; }
   .buyer-chat-body { padding: 18px 14px 15px; }
