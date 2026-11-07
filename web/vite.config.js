@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 function mockSellerApi() {
@@ -64,14 +64,17 @@ function mockSellerApi() {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), mockSellerApi()],
+export default defineConfig(({ mode }) => {
+ const env = loadEnv(mode, process.cwd(), '');
+ return {
+  plugins: [react(), ...(env.VITE_SELLER_MOCK === 'true' ? [mockSellerApi()] : [])],
   server: {
     proxy: {
-      '/api/mock': {
-        target: 'http://127.0.0.1:8082',
+      '/api': {
+        target: env.DEMO_API_ORIGIN || 'http://127.0.0.1:8080',
         changeOrigin: true,
       },
     },
   },
+ };
 });

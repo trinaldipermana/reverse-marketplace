@@ -11,8 +11,55 @@ npm install
 npm run dev
 ```
 
-The match flow calls `POST /api/matches/search`, previews one best product–buyer match with a Shopee listing link, and calls `POST /api/conversations` when the seller starts a DM. These endpoints are mocked by the Vite development server until the P2 API contract is ready.
+The seller dashboard uses real discovery by default. Start the shared Go server
+from the repository root, using your locally configured OpenAI credentials:
 
-The buyer demo at `/buyer` uses the documented mock marketplace APIs. `POST /api/mock/posts` publishes feed posts with an `Idempotency-Key`; `GET /api/mock/threads/{id}` loads replies; `POST /api/mock/threads/{id}/replies` saves buyer replies. Vite proxies `/api/mock` to `http://127.0.0.1:8082`. Run `go run ./internal/discovery/cmd/demo` from the repository root to start that API; it requires the configured OpenAI environment and listens on port 8082 by default.
+```sh
+export DEMO_RESET_TOKEN=local-demo-reset
+# OPENAI_API_KEY must already be set; do not commit it.
+go run ./cmd/server -port 8080 \
+  -turn-instructions prompts/seller_negotiation.txt \
+  -scope-config prompts/buyer_turn_scope.json
+```
+
+In another terminal, run Vite from `web/`. `DEMO_API_ORIGIN` sets the proxy target
+for **all** `/api` calls and defaults to `http://127.0.0.1:8080`:
+
+```sh
+DEMO_API_ORIGIN=http://127.0.0.1:8080 npm run dev
+```
+
+`VITE_SELLER_ID` selects the seller and defaults to `seller_demo`, matching the
+seed. Changes to environment variables require restarting Vite. Production
+hosting must provide the same-origin `/api` reverse proxy separately; Vite's
+proxy is only for local development.
+
+Publish a buyer request before searching; a fresh server has seeded inventory
+but an empty marketplace. The purchase fixture in `docs/demo.md` provides one:
+
+```sh
+# From the repository root, against your own server:
+export DEMO_BASE_URL=http://127.0.0.1:8080
+export DEMO_RUN_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+./scripts/demo.sh post purchase
+```
+
+The seller search calls synchronous `POST /api/matches/search` with `sellerId`
+in the body. Returned matches populate the inbox with actual thread and lead
+IDs. Discovery starts P1 automatically, so **Open conversation** only opens the
+saved conversation and never calls `/api/conversations` in real mode. Active
+thread messages and seller-scoped lead state refresh every 1.5 seconds; API
+errors remain visible. Checkout-ready and paid states come from the lead API.
+No local seller message composer is shown because there is no authorized manual
+seller-send endpoint in this integration. Send replies using the buyer tooling.
+
+To use the old static seller prototype explicitly, start Vite with
+`VITE_SELLER_MOCK=true npm run dev`. Only this mode enables the match/conversation
+mock middleware and sample inbox; buyer API calls still use the configured proxy.
+
+The buyer demo at `/buyer` retains its intended fixed demo thread. Its post/reply
+adapters use the mock marketplace API. Live buyer-side agent-message rendering,
+checkout-page routing, and Discovery Backstage same-run wiring are separate work;
+this seller integration does not claim the full browser purchase flow is complete.
 
 Run `npm run build` to create a production bundle.
