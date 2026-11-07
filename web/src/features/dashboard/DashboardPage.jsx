@@ -235,7 +235,7 @@ function DashboardPage() {
       <main className="main-area">
         <header className="topbar">
           <div className="breadcrumb"><strong className="top-brand">loopfind</strong><span className="top-divider" /><span>Seller Centre</span><Icon>›</Icon><strong>Conversations</strong></div>
-          <div className="top-actions"><span className="connection"><i /> Sources connected</span><button aria-label="Notifications" className="icon-button" type="button">♧<i className="notification-dot" /></button><Avatar initials="NS" small /></div>
+          <div className="top-actions"><span className="connection"><i /> Sources connected</span><a className="buyer-demo-link" href="/buyer">Buyer demo <span>↗</span></a><button aria-label="Notifications" className="icon-button" type="button">♧<i className="notification-dot" /></button><Avatar initials="NS" small /></div>
         </header>
 
         <div className="page-content">
