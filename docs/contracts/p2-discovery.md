@@ -30,7 +30,7 @@ Structured results preserve explicit quantity, unknown values, non-IDR currency,
 
 One unit and IDR are supported. Budget filtering uses the same overflow-safe commerce.MinimumOfferPrice calculation as offers/checkout. Unknown hard attributes are not assumed satisfied. Numeric _min/_max bounds and exact normalized text attributes are checked against current item facts.
 
-Use trusted source coordinates for Haversine distance when both endpoints have them. Otherwise normalized known city equality is the explicit mock fallback; it is not a fabricated distance. Unknown city/geometry is rejected as NEEDS_LOCATION. Model coordinates are not invented or used to override source data.
+Use trusted source coordinates for Haversine distance when both endpoints have them. Otherwise normalized known city equality is the explicit mock fallback; it is not a fabricated distance. Unknown city/geometry is rejected as NEEDS_LOCATION. Source coordinates stay trusted, while the buyer-requested city extracted from the text is preserved separately from source city metadata. Contradictory known cities reject with LOCATION_CONFLICT before lead creation or P1 notification. An unknown extracted city stays unknown; the source city can still supply the normal fallback. Model coordinates are not invented or used to override source data.
 
 Existing leads stay unchanged, including paid/lost/escalated states. A previously accepted event is not re-enqueued. Failed/pending events reuse the same ID, and are paused when the lead is not active. If a new run selects another item for an existing lead, the response preserves the authoritative existing item and marks its fresh score as unavailable rather than attaching the other item's score/reason.
 

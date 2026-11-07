@@ -46,15 +46,17 @@ func TestUnknownQueryItemAndProviderFailure(t *testing.T) {
 
 const validMatch = `{"is_buying_request":true,"confidence":0.95,"item_query":"coding laptop","quantity":2,"requirements":[{"name":"ram_gb_min","value":"16"}],"city":"Jakarta","budget_amount":6000000,"budget_currency":"IDR","urgency_text":"this week","needed_by":null,"matches":[{"item_id":"laptop","score":0.9,"reason":"16GB RAM"}]}`
 
-func TestMatchPreservesQuantityBudgetAndCanonicalLocation(t *testing.T) {
+func TestMatchPreservesQuantityBudgetRequestedCityAndTrustedCoordinates(t *testing.T) {
 	m, _ := NewModelAdapter(generatorFunc(func(_ context.Context, r llm.JSONRequest, out any) error {
 		if !json.Valid(r.Schema) || !strings.Contains(r.Instructions, "6000000 IDR") {
 			t.Fatal("invalid schema/prompt")
 		}
 		return json.Unmarshal([]byte(validMatch), out)
 	}))
-	got, err := m.MatchPost(context.Background(), domain.Post{Text: "Butuh laptop 6 juta", Location: domain.Location{City: "Bandung"}}, modelFixture())
-	if err != nil || got.Intent.Qty != 2 || *got.Intent.BudgetIDR != 6000000 || got.BudgetCurrency != "IDR" || got.Intent.Location.City != "Bandung" || got.Intent.Location.Latitude != nil {
+	latitude, longitude := -6.9, 107.6
+	post := domain.Post{Text: "Butuh laptop 6 juta untuk Jakarta", Location: domain.Location{City: "Bandung", Latitude: &latitude, Longitude: &longitude}}
+	got, err := m.MatchPost(context.Background(), post, modelFixture())
+	if err != nil || got.Intent.Qty != 2 || *got.Intent.BudgetIDR != 6000000 || got.BudgetCurrency != "IDR" || got.Intent.Location.City != "Jakarta" || got.Intent.Location.Latitude == nil || *got.Intent.Location.Latitude != latitude || got.Intent.Location.Longitude == nil || *got.Intent.Location.Longitude != longitude || post.Location.City != "Bandung" {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
