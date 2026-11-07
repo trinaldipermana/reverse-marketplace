@@ -66,6 +66,21 @@ Run local tests without a key or network access:
 go test ./...
 ```
 
+### Readable agent trace for the demo
+
+To opt in, construct an `actionlog.NewWriterSink(os.Stdout)`, wrap it with
+`actionlog.NewRecorder`, and pass that recorder as the optional final argument
+to `runtime.NewTurnRunner`. Check both constructors' errors. The package is
+`github.com/trinaldirizki/reverse-marketplace/internal/runtime/actionlog`.
+Leaving the recorder unset keeps the turn runner silent.
+
+The trace shows turn lifecycle, each model-round start, tool names and safe
+outcomes. A pending message is shown as `DELIVERY_PENDING`; confirmed delivery
+has its own summary. Output contains fixed summaries and validated status codes,
+with opaque IDs, conversation text, tool payloads and private policy omitted.
+Writer failures follow the existing audit failure behavior: further execution
+stops and earlier business actions must not be replayed automatically.
+
 ### Calling the client
 
 ```go
