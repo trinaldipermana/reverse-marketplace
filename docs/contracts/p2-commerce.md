@@ -1,8 +1,8 @@
-# P2 commerce contract proposal
+# P2 commerce service contract
 
-Status: Draft for P1/P2 agreement. Tracking: [#11](https://github.com/trinaldirizki/reverse-marketplace/issues/11). Consumer request and confirmation discussion: [#8](https://github.com/trinaldirizki/reverse-marketplace/issues/8).
+Status: Service implemented in phases 3 and 4; integration review tracked below. Tracking: [#11](https://github.com/trinaldirizki/reverse-marketplace/issues/11). Consumer request and confirmation discussion: [#8](https://github.com/trinaldirizki/reverse-marketplace/issues/8).
 
-This change provides types, a service interface, and fake adapters for integration planning. It implements no production commerce, persistence, HTTP routes, or runtime wiring. Existing components have no implementations to migrate. A teammate must review the open contract choices before merging or integrating this proposal.
+`commerce.Service` implements the six existing commerce methods, plus lead creation, seller-scoped reads, mock payment and expiry operations. [Purchase integration](p2-purchase-path.md) documents construction, transactions, safe APIs, and the component harness. Fakes remain available for isolated runtime tests. Production app/runtime/marketplace wiring and discovery are separate integration work.
 
 ## Ownership and packages
 
@@ -11,7 +11,7 @@ This change provides types, a service interface, and fake adapters for integrati
 | internal/domain | Proposed shared Item, Rules, Intent, LeadRecord, Offer, Checkout, and state types |
 | internal/contracts | Proposed Commerce interface and typed service errors |
 | internal/commerce/commercefake | Configurable P2 test double and isolated demo read fixtures |
-| internal/commerce | Future authoritative commerce implementation |
+| internal/commerce | Authoritative commerce implementation |
 
 P1 owns conversation/tool execution; P2 owns commerce validation and state changes. P4 owns marketplace identity, posts/messages, and delivery. P3 consumes explicit product API projections, not these internal records. P2 does not depend on whether P1/P4 delivery is immediate or queued.
 
@@ -28,21 +28,21 @@ type Commerce interface {
 }
 ```
 
-These names align with the initial runtime proposal. GetLead/GetRules and payload details still need P1 confirmation in #8. No six-tool names or model arguments change.
+These signatures remain compatible with the merged P1 context loader and commerce tool wrappers. No six-tool names or model arguments change.
 
 ## Data conventions
 
-- IDs are strings, money is integer IDR, quantity is one, and timestamps use time.Time serialized as UTC RFC3339 by future HTTP handlers.
+- IDs are strings, money is integer IDR, quantity is one, and timestamps use time.Time serialized as UTC RFC3339 by HTTP handlers.
 - Lead states are active, reserved, escalated, paid, lost. Checkout states are pending, paid, expired, cancelled.
 - LeadRecord carries seller/post/buyer/thread identity, primary item, validated intent, state/version, and optional current offer/checkout.
 - Item carries seller ownership, inventory facts, location, list price, current computed available stock, and version. Available stock excludes unexpired active reservations.
 - Unknown budget/deadline and coordinates remain nil. Structured attributes are normalized string values; attribute names and matching schema still need alignment in discovery work.
-- Rules uses effective typed FloorPriceIDR/MaxDiscountBPS and operational limits; 1000 basis points means 10%. Item overrides are resolved by the future P2 service.
+- Rules uses effective typed FloorPriceIDR/MaxDiscountBPS and operational limits; 1000 basis points means 10%. Item overrides are resolved by P2 commerce.Service.
 - Private rules stay outside model prompts and public API projections. Price fields and bearer checkout URL are excluded from default JSON serialization as a defensive measure. A dedicated delivery operation may explicitly read Checkout.URL; product responses need explicit projections.
 
 ## Required production semantics
 
-These are contracts for the later implementation, not behavior supplied by the fake:
+These guarantees are enforced by commerce.Service; the configurable fake does not enforce them:
 
 1. GetItem/GetRules are seller-scoped. GetLead is an internal trusted runtime lookup; seller-facing HTTP handlers must scope lead reads separately.
 2. RecordOffer validates current ownership, state, price, quantity, and stock. It persists immutable terms, does not reserve stock, and does not send a message.
@@ -84,12 +84,12 @@ A fake is not evidence that production price/stock/checkout guarantees work. Lat
 ## Open agreements and next slices
 
 - P1: confirm retrieval names and records, typed Rules versus the earlier map, and shared package ownership in #8.
-- TransitionLead currently preserves the four-argument baseline. Before production implementation, agree a stable action-key parameter or explicit idempotent repeat-target semantics; expected-version metadata is also open. The fake does not choose either behavior.
+- TransitionLead preserves the four-argument baseline. Repeating the same target and normalized reason is a no-op; a changed reason or invalid source state rejects. No new model/tool metadata is required.
 - P1 GenerateJSON is available in internal/llm via OpenAIClient.GenerateJSON and llm.JSONRequest. P2 supplies schemas and business validation; use that shared client rather than defining a duplicate request type. OnLeadDiscovered acknowledgement/recovery remains tracked in [#6](https://github.com/trinaldirizki/reverse-marketplace/issues/6).
-- P4: provide GetPost/SearchPost identity and payload details in [#7](https://github.com/trinaldirizki/reverse-marketplace/issues/7). This proposal defines no competing marketplace/LLM structs.
+- P4: provide GetPost/SearchPost identity and payload details in [#7](https://github.com/trinaldirizki/reverse-marketplace/issues/7). This service defines no competing marketplace/LLM structs.
 - Team: choose database engine, ordered migration owner, and app wiring owner. Proposed: SQLite, P2 migration coordination, component-owned repositories. No database driver, connection setup, or migration is added here.
 - P3: agree product HTTP schemas in the next slice; these internal structs are not frozen frontend payloads.
 
-Verification for this slice: callback metadata forwarding, safe missing-configuration failures, cancellation before side effects, fixture isolation and seller scoping, typed error classification/unwrap, and accidental private-field JSON exposure. Production valid/rejected offers and checkout semantics remain open acceptance items in #8.
+Verification for this slice: callback metadata forwarding, safe missing-configuration failures, cancellation before side effects, fixture isolation and seller scoping, typed error classification/unwrap, and accidental private-field JSON exposure. Production service tests now cover valid/rejected offers and persisted-offer checkout, including real P1 wrapper integration. App wiring and discovery dispatch remain separate.
 
 Related proposals: [product APIs](p2-product-api.md) and [shared infrastructure](p2-infrastructure.md).

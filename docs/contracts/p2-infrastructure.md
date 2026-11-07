@@ -1,8 +1,8 @@
 # P2 shared infrastructure proposal
 
-Status: Open agreement. Tracking: [#11](https://github.com/trinaldirizki/reverse-marketplace/issues/11). No driver, migration, or app wiring is implemented in this slice.
+Status: SQLite inventory and commerce storage implemented; shared application wiring remains open. Tracking: [#11](https://github.com/trinaldirizki/reverse-marketplace/issues/11). The pinned SQLite driver and migration runner were delivered in Phase 2; the additive commerce migration follows in phases 3/4. Shared app wiring is separate.
 
-## Proposed choices
+## Infrastructure boundaries
 
 | Topic | Proposal | Affected owners |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ Status: Open agreement. Tracking: [#11](https://github.com/trinaldirizki/reverse
 | Clock and IDs | Inject clock and ID generation into P2 services for deterministic expiry/idempotency tests | P2; shared conventions reviewed with P1/P4 |
 | HTTP conventions | net/http-compatible handlers, explicit seller context, common response envelopes | P2, P3, P4 |
 
-SQLite setup needs foreign keys on every connection, bounded busy timeout, and a short write transaction before allocation reads. Keep LLM/network calls outside database transactions. Final driver choice is pending; no dependency is selected here.
+The implemented mockpos.OpenSQLite helper configures the pinned mattn/go-sqlite3 driver, foreign keys, bounded busy timeout, WAL and immediate transactions. P2 commerce also acquires a write lock before allocation reads. Keep LLM/network calls outside database transactions. The real application should open this shared pool once and inject it.
 
 ## P2 schema groups
 
@@ -34,6 +34,6 @@ P1 owns runtime/action tables; P4 owns canonical marketplace posts/messages. P2 
 
 One lead per seller/platform/post; one live reservation and pending checkout per lead; unique payment receipt per checkout. Retain immutable offer/payment terms and current availability checks. Initial migration SQL must include constraints and contention/rollback tests.
 
-## Agreement needed before phase 2
+## Remaining application coordination
 
-Confirm the engine, driver, migration numbering/coordinator, and app wiring coordinator in #11. P2 can prepare service tests/fakes without choosing these on behalf of other owners. A PostgreSQL choice changes transaction/DDL details and must precede migration implementation. This draft introduces no competing migration system or storage connection.
+Confirm the app wiring coordinator and shared migration coordination with P1/P4 in #11. Applied migrations are immutable and use the single schema_migrations sequence. Changing the deployed database engine later requires an explicit migration plan; component constructors do not open competing databases.
