@@ -101,11 +101,36 @@ func (s *Service) CreateCheckout(ctx context.Context, leadID, offerID, actionKey
 		return domain.Checkout{}, err
 	}
 	if found {
-		out, err := checkoutFromResult(raw)
+		saved, err := checkoutFromResult(raw)
 		if err != nil {
 			return domain.Checkout{}, err
 		}
-		return out, tx.Commit()
+		// A live replay preserves identity/URL. A released/paid checkout returns
+		// a business rejection rather than stale pending data or another hold.
+		current, err := s.checkoutByIDTx(ctx, tx, saved.ID)
+		if err != nil {
+			return domain.Checkout{}, err
+		}
+		if current.SellerID != seller || current.LeadID != leadID || current.OfferID != offerID {
+			return domain.Checkout{}, commerceProblem(contracts.InvalidState, "stored checkout action is inconsistent")
+		}
+		if current.Status == domain.CheckoutPending && !s.now().Before(current.ExpiresAt) {
+			if _, err = s.releaseCheckoutTx(ctx, tx, current, "expired", s.now()); err != nil {
+				return domain.Checkout{}, err
+			}
+			if err = tx.Commit(); err != nil {
+				return domain.Checkout{}, err
+			}
+			return domain.Checkout{}, commerceProblem(contracts.CheckoutExpired, "checkout has expired")
+		}
+		if current.Status == domain.CheckoutExpired {
+			return domain.Checkout{}, commerceProblem(contracts.CheckoutExpired, "checkout has expired")
+		}
+		if current.Status != domain.CheckoutPending {
+			return domain.Checkout{}, commerceProblem(contracts.InvalidState, "checkout is no longer pending")
+		}
+		current.URL = saved.URL
+		return current.Checkout, tx.Commit()
 	}
 	now := time.UnixMilli(s.now().UnixMilli()).UTC()
 	if _, err = s.expireCheckoutsTx(ctx, tx, now); err != nil {
