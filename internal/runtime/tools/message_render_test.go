@@ -98,3 +98,41 @@ func TestRenderMessageChecksOwnedCheckoutURL(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderMessageRejectsUnicodeCheckoutOrigins(t *testing.T) {
+	// Unicode case folding merges sigma and final sigma, but browsers assign
+	// them different IDNA origins. Accept ASCII/punycode hosts only, like P4.
+	for _, tc := range []struct{ name, origin, link string }{
+		{"raw sigma collision", "https://σ.example", "https://ς.example/checkout/token"},
+		{"escaped sigma collision", "https://%CF%83.example", "https://%CF%82.example/checkout/token"},
+		{"matching Unicode host", "https://σ.example", "https://σ.example/checkout/token"},
+		{"distinct punycode hosts", "https://xn--4xa.example", "https://xn--3xa.example/checkout/token"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lead, now := renderFixture()
+			lead.Checkout.URL = tc.link
+			got, err := RenderMessage("{checkout_link}", lead, tc.origin, now)
+			if got != "" || err != ErrMessageRender {
+				t.Fatal("unsafe checkout origin was not rejected with the redacted render error")
+			}
+		})
+	}
+}
+
+func TestRenderMessageAcceptsASCIIOriginForms(t *testing.T) {
+	for _, tc := range []struct{ name, origin, link string }{
+		{"ASCII case", "https://SHOP.example:8443", "https://shop.EXAMPLE:8443/checkout/token"},
+		{"punycode", "https://xn--4xa.example", "https://xn--4xa.example/checkout/token"},
+		{"IPv4", "http://127.0.0.1:8080", "http://127.0.0.1:8080/checkout/token"},
+		{"IPv6", "http://[::1]:8080", "http://[::1]:8080/checkout/token"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lead, now := renderFixture()
+			lead.Checkout.URL = tc.link
+			got, err := RenderMessage("{checkout_link}", lead, tc.origin, now)
+			if err != nil || got != tc.link {
+				t.Fatalf("valid ASCII checkout rejected: %v", err)
+			}
+		})
+	}
+}

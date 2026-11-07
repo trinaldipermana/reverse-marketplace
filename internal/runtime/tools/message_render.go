@@ -76,7 +76,19 @@ func ownedCheckoutURL(raw, origin string) bool {
 }
 
 func httpOrigin(u *url.URL) bool {
-	return u != nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.Hostname() != "" && u.User == nil && u.Opaque == ""
+	if u == nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.Hostname() == "" || u.User != nil || u.Opaque != "" {
+		return false
+	}
+	// Match P4's ASCII/punycode/IP boundary. Unicode EqualFold can equate
+	// distinct browser origins (for example sigma and final sigma); callers
+	// must configure internationalized names in their ASCII punycode form.
+	// url.Parse has already decoded percent-encoded hostname characters here.
+	for _, char := range u.Hostname() {
+		if char > 127 {
+			return false
+		}
+	}
+	return true
 }
 
 func formatIDR(price int64) string {
