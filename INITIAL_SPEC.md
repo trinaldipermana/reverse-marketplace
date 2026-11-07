@@ -270,10 +270,3 @@ These defaults are implementation proposals, not additional confirmed requiremen
 | Thresholds and caps | Configurable, calibrated against seed scenarios before the demo |
 
 Still needed from the team: hours remaining and submission deadline, P3/P4 names, preferred frontend stack, available model access, migration ownership, and P2/P3 API request/response shapes. Manual approval and seller hand-back are proposed features pending scope agreement. No agent should interpret those open items as permission to expand another role's work.
-
-## Immediate next actions
-
-1. Share this document with all four teammate agents and confirm the responsibility split.
-2. Inspect `osh/reverse-marketplace/` and agree shared types, migrations, and P2/P3 API contracts.
-3. Implement shared contracts and seed scenarios so each owner can build against them.
-4. Integrate the first complete purchase before adding platform integrations or visual polish.
